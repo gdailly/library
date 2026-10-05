@@ -1,0 +1,12 @@
+package com.gdailly.library.repository;
+
+import java.util.Optional;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import com.gdailly.library.entity.AppUser;
+
+public interface AppUserRepository extends JpaRepository<AppUser, Long> {
+
+    Optional<AppUser> findByEmailIgnoreCase(String email);
+}
