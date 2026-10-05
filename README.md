@@ -7,8 +7,8 @@ Ajout rapide par scan du code-barres ISBN, puis reconnaissance de couverture et 
 
 | Couche | Technologie |
 | --- | --- |
-| Backend | Java 25 (LTS), Spring Boot 4, Maven |
-| Base de données | MariaDB + Flyway |
+| Backend | Java 25 (LTS), Spring Boot 4, Gradle |
+| Base de données | MariaDB + Liquibase |
 | Frontend | Flutter (web + Android) |
 | Authentification | Google Sign-In, liste blanche d'e-mails |
 | Reconnaissance IA | Claude Haiku 4.5 via `com.anthropic:anthropic-java` |

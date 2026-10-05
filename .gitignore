@@ -2,8 +2,9 @@
 .env
 *.env.local
 
-# Java / Maven
-backend/target/
+# Java / Gradle
+backend/build/
+backend/.gradle/
 *.class
 *.log
 hs_err_pid*
@@ -28,3 +29,6 @@ infra/data/
 *.swp
 .DS_Store
 Thumbs.db
+
+# Couvertures en développement local (hors Docker)
+backend/covers/
