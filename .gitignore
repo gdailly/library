@@ -1,0 +1,30 @@
+# Secrets et environnement
+.env
+*.env.local
+
+# Java / Maven
+backend/target/
+*.class
+*.log
+hs_err_pid*
+
+# Flutter / Dart
+frontend/.dart_tool/
+frontend/build/
+frontend/.flutter-plugins
+frontend/.flutter-plugins-dependencies
+frontend/android/.gradle/
+frontend/android/local.properties
+frontend/android/app/*.jks
+frontend/android/key.properties
+*.iml
+
+# Données locales (volumes Docker)
+infra/data/
+
+# IDE et OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
