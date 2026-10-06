@@ -40,8 +40,28 @@ class CoverUrlSignerTest {
     }
 
     @Test
-    void requiresASecret() {
+    void requiresASecretOfAtLeast16Characters() {
         assertThatThrownBy(() -> signer("", NOW)).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> signer("a".repeat(15), NOW)).isInstanceOf(IllegalStateException.class);
+        assertThat(signer("a".repeat(16), NOW).sign(1, KEY)).isNotNull();
+    }
+
+    @Test
+    void stillValidDuringItsLastSecond() {
+        CoverUrlSigner.SignedCover signed = signer("secret-0123456789", NOW).sign(42, KEY);
+        Instant expiry = Instant.ofEpochSecond(signed.expires());
+
+        assertThat(signer("secret-0123456789", expiry).isValid(42, KEY, signed.expires(), signed.signature())).isTrue();
+        assertThat(signer("secret-0123456789", expiry.plusSeconds(1)).isValid(42, KEY, signed.expires(), signed.signature()))
+                .isFalse();
+    }
+
+    @Test
+    void rejectsMissingParts() {
+        CoverUrlSigner signer = signer("secret-0123456789", NOW);
+        CoverUrlSigner.SignedCover signed = signer.sign(42, KEY);
+        assertThat(signer.isValid(42, null, signed.expires(), signed.signature())).isFalse();
+        assertThat(signer.isValid(42, KEY, signed.expires(), null)).isFalse();
     }
 
     private static CoverUrlSigner signer(String secret, Instant now) {

@@ -23,11 +23,13 @@ public class ReadingService {
     private final BookService books;
     private final ReadingRepository readings;
     private final Clock clock;
+    private final ReadingMapper readingMapper;
 
-    ReadingService(BookService books, ReadingRepository readings, Clock clock) {
+    ReadingService(BookService books, ReadingRepository readings, Clock clock, ReadingMapper readingMapper) {
         this.books = books;
         this.readings = readings;
         this.clock = clock;
+        this.readingMapper = readingMapper;
     }
 
     @Transactional
@@ -35,7 +37,7 @@ public class ReadingService {
         Book book = books.find(user, bookId);
         Reading reading = readings.findByBookIdAndUserId(book.getId(), user.userId())
                 .orElseGet(() -> new Reading(book.getId(), user.userId()));
-        ReadingMapper.updateEntity(reading, request);
+        readingMapper.updateEntity(request, reading);
 
         LocalDate today = LocalDate.now(clock);
         if (reading.getStatus() == ReadingStatus.READING && reading.getStartedOn() == null) {
@@ -48,6 +50,6 @@ public class ReadingService {
                 && reading.getFinishedOn().isBefore(reading.getStartedOn())) {
             throw new BadRequestException("La date de fin précède la date de début.");
         }
-        return ReadingMapper.toResponse(readings.save(reading));
+        return readingMapper.toResponse(readings.save(reading));
     }
 }

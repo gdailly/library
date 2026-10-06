@@ -34,6 +34,7 @@ import com.gdailly.library.repository.CategoryRepository;
 import com.gdailly.library.repository.ReadingRepository;
 import com.gdailly.library.security.CurrentUser;
 import com.gdailly.library.util.Isbn;
+import com.gdailly.library.util.Strings;
 
 @Service
 public class BookService {
@@ -45,14 +46,16 @@ public class BookService {
     private final ReadingRepository readings;
     private final CoverService covers;
     private final TransactionTemplate transaction;
+    private final BookMapper bookMapper;
 
     BookService(BookRepository books, CategoryRepository categories, ReadingRepository readings, CoverService covers,
-            PlatformTransactionManager transactionManager) {
+            PlatformTransactionManager transactionManager, BookMapper bookMapper) {
         this.books = books;
         this.categories = categories;
         this.readings = readings;
         this.covers = covers;
         this.transaction = new TransactionTemplate(transactionManager);
+        this.bookMapper = bookMapper;
     }
 
     /** Criteria of GET /api/books; null means no filter. {@code status} and {@code minRating} apply to the caller's readings. */
@@ -61,25 +64,15 @@ public class BookService {
 
     @Transactional(readOnly = true)
     public PageResponse<BookResponse> search(CurrentUser user, SearchCriteria criteria, int page) {
-        String text = criteria.q() == null || criteria.q().isBlank() ? null : criteria.q().trim();
-        BookFilter filter = new BookFilter(
-                user.libraryId(),
-                text == null ? null : "%" + escapeLike(text.toLowerCase(Locale.ROOT)) + "%",
-                text == null ? null : Isbn.toIsbn13(text).orElse(null),
-                criteria.owned(),
-                criteria.categoryId(),
-                user.userId(),
-                criteria.status(),
-                criteria.minRating());
         PageRequest pageable = PageRequest.of(Math.max(page, 0), PAGE_SIZE, Sort.by("title", "id"));
-        Page<Book> result = books.findAll(BookSpecifications.matching(filter), pageable);
+        Page<Book> result = books.findAll(BookSpecifications.matching(filterFor(user, criteria)), pageable);
 
         List<Long> ids = result.getContent().stream().map(Book::getId).toList();
         Map<Long, Reading> myReadings = ids.isEmpty() ? Map.of()
                 : readings.findByUserIdAndBookIdIn(user.userId(), ids).stream()
                         .collect(Collectors.toMap(Reading::getBookId, Function.identity()));
         return PageResponse.of(result,
-                book -> BookMapper.toResponse(book, myReadings.get(book.getId()), covers.urls(book)));
+                book -> bookMapper.toResponse(book, myReadings.get(book.getId()), covers.urls(book)));
     }
 
     @Transactional(readOnly = true)
@@ -123,14 +116,14 @@ public class BookService {
     BookResponse toResponse(CurrentUser user, Book book) {
         Reading myReading = book.getId() == null ? null
                 : readings.findByBookIdAndUserId(book.getId(), user.userId()).orElse(null);
-        return BookMapper.toResponse(book, myReading, covers.urls(book));
+        return bookMapper.toResponse(book, myReading, covers.urls(book));
     }
 
     private void apply(CurrentUser user, Book book, BookRequest request) {
-        String isbn = BookMapper.blankToNull(request.isbn());
+        String isbn = Strings.trimToNull(request.isbn());
         book.setIsbn13(isbn == null ? null
                 : Isbn.toIsbn13(isbn).orElseThrow(() -> new BadRequestException("ISBN invalide : " + isbn)));
-        BookMapper.updateEntity(book, request);
+        bookMapper.updateEntity(request, book);
         book.setCategories(resolveCategories(user, request.categoryIds()));
     }
 
@@ -146,7 +139,22 @@ public class BookService {
         return new HashSet<>(found);
     }
 
-    private static String escapeLike(String value) {
+    /** The text searched as typed (case-insensitive), and also as an ISBN when it is one. */
+    static BookFilter filterFor(CurrentUser user, SearchCriteria criteria) {
+        String text = Strings.trimToNull(criteria.q());
+        return new BookFilter(
+                user.libraryId(),
+                text == null ? null : "%" + escapeLike(text.toLowerCase(Locale.ROOT)) + "%",
+                text == null ? null : Isbn.toIsbn13(text).orElse(null),
+                criteria.owned(),
+                criteria.categoryId(),
+                user.userId(),
+                criteria.status(),
+                criteria.minRating());
+    }
+
+    /** Escapes the LIKE wildcards typed by the user, so that "100%" matches literally. */
+    static String escapeLike(String value) {
         return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
     }
 }

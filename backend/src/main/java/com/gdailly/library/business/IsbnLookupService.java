@@ -42,15 +42,17 @@ public class IsbnLookupService {
     private final GoogleBooksClient googleBooks;
     private final LivreProperties.Isbn settings;
     private final Clock clock;
+    private final IsbnLookupMapper isbnLookupMapper;
 
     IsbnLookupService(BookRepository books, IsbnLookupRepository cache, OpenLibraryClient openLibrary,
-            GoogleBooksClient googleBooks, LivreProperties properties, Clock clock) {
+            GoogleBooksClient googleBooks, LivreProperties properties, Clock clock, IsbnLookupMapper isbnLookupMapper) {
         this.books = books;
         this.cache = cache;
         this.openLibrary = openLibrary;
         this.googleBooks = googleBooks;
         this.settings = properties.isbn();
         this.clock = clock;
+        this.isbnLookupMapper = isbnLookupMapper;
     }
 
     public IsbnLookupResponse lookup(CurrentUser user, String rawIsbn) {
@@ -58,7 +60,7 @@ public class IsbnLookupService {
 
         var existing = books.findByLibraryIdAndIsbn13(user.libraryId(), isbn13);
         if (existing.isPresent()) {
-            return IsbnLookupMapper.fromBook(existing.get());
+            return isbnLookupMapper.fromBook(existing.get());
         }
 
         Optional<IsbnLookup> entry = cache.findById(isbn13).filter(this::isFresh);
@@ -80,7 +82,7 @@ public class IsbnLookupService {
                 Optional<String> payload = source.client().fetch(isbn13);
                 if (payload.isPresent()) {
                     cache.save(new IsbnLookup(isbn13, source.cached(), payload.get(), Instant.now(clock)));
-                    return IsbnLookupMapper.fromMetadata(isbn13, source.reported(),
+                    return isbnLookupMapper.fromMetadata(isbn13, source.reported(),
                             source.client().parse(isbn13, payload.get()).orElseThrow());
                 }
             } catch (RuntimeException e) {
@@ -107,7 +109,7 @@ public class IsbnLookupService {
         boolean google = entry.getSource() == LookupSource.GOOGLE_BOOKS;
         MetadataClient client = google ? googleBooks : openLibrary;
         MetadataSource source = google ? MetadataSource.GOOGLE_BOOKS : MetadataSource.OPEN_LIBRARY;
-        return client.parse(isbn13, entry.getPayload()).map(m -> IsbnLookupMapper.fromMetadata(isbn13, source, m));
+        return client.parse(isbn13, entry.getPayload()).map(m -> isbnLookupMapper.fromMetadata(isbn13, source, m));
     }
 
     private record Source(MetadataClient client, LookupSource cached, MetadataSource reported) {

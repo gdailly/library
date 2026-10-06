@@ -28,10 +28,12 @@ public class MemberService {
 
     private final LibraryMemberRepository members;
     private final AppUserRepository users;
+    private final MemberMapper memberMapper;
 
-    MemberService(LibraryMemberRepository members, AppUserRepository users) {
+    MemberService(LibraryMemberRepository members, AppUserRepository users, MemberMapper memberMapper) {
         this.members = members;
         this.users = users;
+        this.memberMapper = memberMapper;
     }
 
     @Transactional(readOnly = true)
@@ -40,7 +42,7 @@ public class MemberService {
         Map<Long, AppUser> byId = users.findAllById(memberships.stream().map(LibraryMember::getUserId).toList()).stream()
                 .collect(Collectors.toMap(AppUser::getId, Function.identity()));
         return memberships.stream()
-                .map(m -> MemberMapper.toResponse(m, byId.get(m.getUserId())))
+                .map(m -> memberMapper.toResponse(m, byId.get(m.getUserId())))
                 .sorted(Comparator.comparing(MemberResponse::role).thenComparing(MemberResponse::email))
                 .toList();
     }
@@ -55,7 +57,7 @@ public class MemberService {
         }
         Role role = request.role() == null ? Role.MEMBER : request.role();
         LibraryMember member = members.save(new LibraryMember(user.libraryId(), invited.getId(), role));
-        return MemberMapper.toResponse(member, invited);
+        return memberMapper.toResponse(member, invited);
     }
 
     @Transactional

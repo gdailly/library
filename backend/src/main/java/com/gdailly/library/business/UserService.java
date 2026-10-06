@@ -21,11 +21,14 @@ public class UserService {
     private final AppUserRepository users;
     private final LibraryRepository libraries;
     private final LibraryMemberRepository members;
+    private final UserMapper userMapper;
 
-    UserService(AppUserRepository users, LibraryRepository libraries, LibraryMemberRepository members) {
+    UserService(AppUserRepository users, LibraryRepository libraries, LibraryMemberRepository members,
+            UserMapper userMapper) {
         this.users = users;
         this.libraries = libraries;
         this.members = members;
+        this.userMapper = userMapper;
     }
 
     @Transactional(readOnly = true)
@@ -35,6 +38,6 @@ public class UserService {
                 .map(m -> new MeResponse.LibrarySummary(m.getLibraryId(),
                         libraries.findById(m.getLibraryId()).map(Library::getName).orElse(null), m.getRole()))
                 .toList();
-        return UserMapper.toMeResponse(user, memberships);
+        return userMapper.toMeResponse(user, memberships);
     }
 }
