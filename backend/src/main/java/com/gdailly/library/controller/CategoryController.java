@@ -18,9 +18,12 @@ import com.gdailly.library.dto.CategoryRequest;
 import com.gdailly.library.dto.CategoryResponse;
 import com.gdailly.library.security.CurrentUser;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 import jakarta.validation.Valid;
 
 @RestController
+@Tag(name = "Categories", description = "Catégories de la bibliothèque")
 @RequestMapping("/api/categories")
 class CategoryController {
 

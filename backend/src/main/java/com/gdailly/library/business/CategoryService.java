@@ -1,6 +1,8 @@
 package com.gdailly.library.business;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,9 +29,14 @@ public class CategoryService {
         this.categoryMapper = categoryMapper;
     }
 
+    /** Categories by name, with their number of books. */
     @Transactional(readOnly = true)
     public List<CategoryResponse> list(CurrentUser user) {
-        return categories.findByLibraryIdOrderByName(user.libraryId()).stream().map(categoryMapper::toResponse).toList();
+        Map<Long, Long> counts = categories.countBooksByCategory(user.libraryId()).stream()
+                .collect(Collectors.toMap(row -> (Long) row[0], row -> (Long) row[1]));
+        return categories.findByLibraryIdOrderByName(user.libraryId()).stream()
+                .map(category -> categoryMapper.toResponse(category, counts.getOrDefault(category.getId(), 0L)))
+                .toList();
     }
 
     @Transactional

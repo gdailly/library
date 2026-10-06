@@ -36,6 +36,8 @@ Package Java racine : `com.gdailly.library`. Code rangé par couche, un package 
 Les règles de dépendance sont vérifiées par `LayeredArchitectureTest` (ArchUnit).
 Migrations : `backend/src/main/resources/db/changelog/` (master YAML + changesets SQL formatés, un fichier par évolution).
 
+Frontend Flutter (`frontend/`) : Riverpod 3, go_router, widgets Material via `material_ui`, organisé par fonctionnalité (`core/`, `features/<fonctionnalité>/`, `shared/`). Client API généré dans `frontend/packages/library_api` (`scripts/generate-api-client.sh`, ne jamais l'éditer à la main) ; dans les DTO Java, tout champ non annoté `@Nullable` est obligatoire dans le contrat.
+
 ## Organisation du dépôt
 
 ```
@@ -125,7 +127,7 @@ Redimensionner les photos à ~1000 px avant envoi (coût ≈ 0,002 $ par photo).
 - Cibles tactiles ≥ 44 px ; contraste texte ≥ 4.5:1.
 - Bouton de connexion : utiliser le bouton officiel « Sign in with Google ».
 
-## Configuration (infra/.env.example)
+## Configuration (infra/.env.example → `.env.local` à la racine, ignoré par Git)
 
 `MARIADB_*`, `GOOGLE_CLIENT_IDS`, `BOOTSTRAP_OWNER_EMAIL`, `CORS_ALLOWED_ORIGINS`, `GOOGLE_BOOKS_API_KEY`, `COVER_URL_SECRET`, `RECOGNITION_ENABLED`, `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`.
 Aucun secret dans le code ni dans les fichiers versionnés.

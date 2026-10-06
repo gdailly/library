@@ -36,11 +36,14 @@ import com.gdailly.library.dto.ReadingResponse;
 import com.gdailly.library.entity.ReadingStatus;
 import com.gdailly.library.security.CurrentUser;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 
 @RestController
+@Tag(name = "Books", description = "Livres, couvertures et suivi de lecture")
 @RequestMapping("/api/books")
 class BookController {
 

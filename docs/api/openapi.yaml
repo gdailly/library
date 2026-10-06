@@ -6,11 +6,22 @@ servers:
 - url: /
 security:
 - googleIdToken: []
+tags:
+- name: Me
+  description: Utilisateur connecté
+- name: Lookup
+  description: Recherche de métadonnées
+- name: Categories
+  description: Catégories de la bibliothèque
+- name: Books
+  description: "Livres, couvertures et suivi de lecture"
+- name: Members
+  description: Membres de la bibliothèque
 paths:
   /api/categories/{id}:
     put:
       tags:
-      - category-controller
+      - Categories
       operationId: updateCategory
       parameters:
       - name: id
@@ -34,7 +45,7 @@ paths:
                 $ref: "#/components/schemas/CategoryResponse"
     delete:
       tags:
-      - category-controller
+      - Categories
       operationId: deleteCategory
       parameters:
       - name: id
@@ -49,7 +60,7 @@ paths:
   /api/books/{id}:
     get:
       tags:
-      - book-controller
+      - Books
       operationId: getBook
       parameters:
       - name: id
@@ -67,7 +78,7 @@ paths:
                 $ref: "#/components/schemas/BookResponse"
     put:
       tags:
-      - book-controller
+      - Books
       operationId: updateBook
       parameters:
       - name: id
@@ -91,7 +102,7 @@ paths:
                 $ref: "#/components/schemas/BookResponse"
     delete:
       tags:
-      - book-controller
+      - Books
       operationId: deleteBook
       parameters:
       - name: id
@@ -106,7 +117,7 @@ paths:
   /api/books/{id}/reading:
     put:
       tags:
-      - book-controller
+      - Books
       operationId: saveMyReading
       parameters:
       - name: id
@@ -131,7 +142,7 @@ paths:
   /api/books/{id}/cover:
     get:
       tags:
-      - book-controller
+      - Books
       operationId: getCover
       parameters:
       - name: id
@@ -172,7 +183,7 @@ paths:
                 format: binary
     put:
       tags:
-      - book-controller
+      - Books
       operationId: uploadCover
       parameters:
       - name: id
@@ -201,7 +212,7 @@ paths:
                 $ref: "#/components/schemas/CoverResponse"
     delete:
       tags:
-      - book-controller
+      - Books
       operationId: deleteCover
       parameters:
       - name: id
@@ -216,7 +227,7 @@ paths:
   /api/library/members:
     get:
       tags:
-      - member-controller
+      - Members
       operationId: listMembers
       responses:
         "200":
@@ -229,7 +240,7 @@ paths:
                   $ref: "#/components/schemas/MemberResponse"
     post:
       tags:
-      - member-controller
+      - Members
       operationId: inviteMember
       requestBody:
         content:
@@ -247,7 +258,7 @@ paths:
   /api/categories:
     get:
       tags:
-      - category-controller
+      - Categories
       operationId: listCategories
       responses:
         "200":
@@ -260,7 +271,7 @@ paths:
                   $ref: "#/components/schemas/CategoryResponse"
     post:
       tags:
-      - category-controller
+      - Categories
       operationId: createCategory
       requestBody:
         content:
@@ -278,7 +289,7 @@ paths:
   /api/books:
     get:
       tags:
-      - book-controller
+      - Books
       operationId: listBooks
       parameters:
       - name: q
@@ -301,12 +312,7 @@ paths:
         in: query
         required: false
         schema:
-          type: string
-          enum:
-          - TO_READ
-          - READING
-          - READ
-          - ABANDONED
+          $ref: "#/components/schemas/ReadingStatus"
       - name: minRating
         in: query
         required: false
@@ -332,7 +338,7 @@ paths:
                 $ref: "#/components/schemas/PageResponseBookResponse"
     post:
       tags:
-      - book-controller
+      - Books
       operationId: createBook
       requestBody:
         content:
@@ -350,7 +356,7 @@ paths:
   /api/me:
     get:
       tags:
-      - me-controller
+      - Me
       operationId: getMe
       responses:
         "200":
@@ -362,7 +368,7 @@ paths:
   /api/lookup/isbn/{isbn}:
     get:
       tags:
-      - lookup-controller
+      - Lookup
       operationId: lookupIsbn
       parameters:
       - name: isbn
@@ -380,7 +386,7 @@ paths:
   /api/library/members/{userId}:
     delete:
       tags:
-      - member-controller
+      - Members
       operationId: removeMember
       parameters:
       - name: userId
@@ -417,6 +423,13 @@ components:
           type: string
         color:
           type: string
+        bookCount:
+          type: integer
+          format: int64
+      required:
+      - color
+      - id
+      - name
     BookRequest:
       type: object
       properties:
@@ -500,6 +513,8 @@ components:
         addedBy:
           type: integer
           format: int64
+        addedByName:
+          type: string
         createdAt:
           type: string
           format: date-time
@@ -511,6 +526,17 @@ components:
           $ref: "#/components/schemas/ReadingResponse"
         cover:
           $ref: "#/components/schemas/CoverResponse"
+        otherReadings:
+          type: array
+          items:
+            $ref: "#/components/schemas/OtherReadingResponse"
+      required:
+      - categories
+      - createdAt
+      - id
+      - otherReadings
+      - owned
+      - title
     CoverResponse:
       type: object
       properties:
@@ -518,16 +544,33 @@ components:
           type: string
         mediumUrl:
           type: string
+      required:
+      - mediumUrl
+      - thumbUrl
+    OtherReadingResponse:
+      type: object
+      properties:
+        userId:
+          type: integer
+          format: int64
+        name:
+          type: string
+        status:
+          $ref: "#/components/schemas/ReadingStatus"
+        rating:
+          type: integer
+          format: int32
+        review:
+          type: string
+      required:
+      - name
+      - status
+      - userId
     ReadingResponse:
       type: object
       properties:
         status:
-          type: string
-          enum:
-          - TO_READ
-          - READING
-          - READ
-          - ABANDONED
+          $ref: "#/components/schemas/ReadingStatus"
         rating:
           type: integer
           format: int32
@@ -539,16 +582,20 @@ components:
         finishedOn:
           type: string
           format: date
+      required:
+      - status
+    ReadingStatus:
+      type: string
+      enum:
+      - TO_READ
+      - READING
+      - READ
+      - ABANDONED
     ReadingRequest:
       type: object
       properties:
         status:
-          type: string
-          enum:
-          - TO_READ
-          - READING
-          - READ
-          - ABANDONED
+          $ref: "#/components/schemas/ReadingStatus"
         rating:
           type: integer
           format: int32
@@ -575,12 +622,14 @@ components:
           maxLength: 320
           minLength: 0
         role:
-          type: string
-          enum:
-          - OWNER
-          - MEMBER
+          $ref: "#/components/schemas/Role"
       required:
       - email
+    Role:
+      type: string
+      enum:
+      - OWNER
+      - MEMBER
     MemberResponse:
       type: object
       properties:
@@ -594,10 +643,11 @@ components:
         avatarUrl:
           type: string
         role:
-          type: string
-          enum:
-          - OWNER
-          - MEMBER
+          $ref: "#/components/schemas/Role"
+      required:
+      - email
+      - role
+      - userId
     LibrarySummary:
       type: object
       properties:
@@ -607,10 +657,10 @@ components:
         name:
           type: string
         role:
-          type: string
-          enum:
-          - OWNER
-          - MEMBER
+          $ref: "#/components/schemas/Role"
+      required:
+      - id
+      - role
     MeResponse:
       type: object
       properties:
@@ -627,17 +677,17 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/LibrarySummary"
+      required:
+      - email
+      - id
+      - libraries
     IsbnLookupResponse:
       type: object
       properties:
         isbn13:
           type: string
         source:
-          type: string
-          enum:
-          - LIBRARY
-          - OPEN_LIBRARY
-          - GOOGLE_BOOKS
+          $ref: "#/components/schemas/MetadataSource"
         existingBookId:
           type: integer
           format: int64
@@ -661,6 +711,16 @@ components:
           type: string
         coverUrl:
           type: string
+      required:
+      - isbn13
+      - source
+      - title
+    MetadataSource:
+      type: string
+      enum:
+      - LIBRARY
+      - OPEN_LIBRARY
+      - GOOGLE_BOOKS
     PageResponseBookResponse:
       type: object
       properties:
@@ -680,6 +740,12 @@ components:
         totalPages:
           type: integer
           format: int32
+      required:
+      - items
+      - page
+      - size
+      - totalItems
+      - totalPages
   securitySchemes:
     googleIdToken:
       type: http

@@ -30,7 +30,8 @@ class ReadingIT extends IntegrationTest {
                 .andExpect(jsonPath("$.finishedOn").value(notNullValue()));
 
         mvc.perform(get("/api/books/{id}", id).with(owner()))
-                .andExpect(jsonPath("$.myReading.review").value("Immense."));
+                .andExpect(jsonPath("$.myReading.review").value("Immense."))
+                .andExpect(jsonPath("$.addedByName").value("Test owner@example.com"));
         mvc.perform(get("/api/books/{id}", id).with(alice))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.myReading").doesNotExist());
@@ -42,6 +43,9 @@ class ReadingIT extends IntegrationTest {
                 .andExpect(jsonPath("$.rating").doesNotExist());
         mvc.perform(get("/api/books/{id}", id).with(owner()))
                 .andExpect(jsonPath("$.myReading.status").value("READ"));
+        mvc.perform(get("/api/books/{id}", id).with(owner()))
+                .andExpect(jsonPath("$.otherReadings[0].name").value("Test alice@example.com"))
+                .andExpect(jsonPath("$.otherReadings[0].status").value("READING"));
     }
 
     @Test
@@ -64,6 +68,17 @@ class ReadingIT extends IntegrationTest {
                 .andExpect(jsonPath("$.items[*].title").value(not(hasItem("Germinal"))));
         mvc.perform(get("/api/books").param("q", "germinal").with(bob))
                 .andExpect(jsonPath("$.items[0].myReading.rating").value(4));
+    }
+
+    /** The Dart client sends dates as DateTime.toIso8601String(). */
+    @Test
+    void acceptsDatesSentAsDateTimeByTheDartClient() throws Exception {
+        long id = createBook("{\"title\": \"Pierre et Jean\"}");
+        mvc.perform(put("/api/books/{id}/reading", id).with(owner()).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\": \"READ\", \"startedOn\": \"2026-03-01T00:00:00.000\", \"finishedOn\": \"2026-03-09\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.startedOn").value("2026-03-01"))
+                .andExpect(jsonPath("$.finishedOn").value("2026-03-09"));
     }
 
     @Test

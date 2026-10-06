@@ -2,6 +2,8 @@ package com.gdailly.library.dto;
 
 import java.time.LocalDate;
 
+import org.jspecify.annotations.Nullable;
+
 import com.gdailly.library.entity.ReadingStatus;
 
 import jakarta.validation.constraints.Max;
@@ -15,8 +17,8 @@ import jakarta.validation.constraints.Size;
  */
 public record ReadingRequest(
         @NotNull ReadingStatus status,
-        @Min(1) @Max(5) Integer rating,
-        @Size(max = 20000) String review,
-        LocalDate startedOn,
-        LocalDate finishedOn) {
+        @Min(1) @Max(5) @Nullable Integer rating,
+        @Size(max = 20000) @Nullable String review,
+        @Nullable LocalDate startedOn,
+        @Nullable LocalDate finishedOn) {
 }

@@ -1,5 +1,7 @@
 package com.gdailly.library.mapper;
 
+import java.util.List;
+
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
@@ -7,18 +9,25 @@ import org.mapstruct.MappingTarget;
 import com.gdailly.library.dto.BookRequest;
 import com.gdailly.library.dto.BookResponse;
 import com.gdailly.library.dto.CoverResponse;
+import com.gdailly.library.dto.OtherReadingResponse;
 import com.gdailly.library.entity.Book;
 import com.gdailly.library.entity.Reading;
 
 @Mapper(config = MappingConfig.class, uses = {CategoryMapper.class, ReadingMapper.class})
 public interface BookMapper {
 
-    /** {@code myReading} is the caller's reading of this book, {@code cover} its signed URLs; both may be null. */
+    /**
+     * {@code myReading} is the caller's reading of this book and {@code cover} its signed URLs, both may be null;
+     * {@code addedByName} is null when the member who added it left.
+     */
     @Mapping(target = "id", source = "book.id")
     @Mapping(target = "categories", source = "book.categories")
     @Mapping(target = "myReading", source = "myReading")
     @Mapping(target = "cover", source = "cover")
-    BookResponse toResponse(Book book, Reading myReading, CoverResponse cover);
+    @Mapping(target = "addedByName", source = "addedByName")
+    @Mapping(target = "otherReadings", source = "otherReadings")
+    BookResponse toResponse(Book book, Reading myReading, CoverResponse cover, String addedByName,
+            List<OtherReadingResponse> otherReadings);
 
     /**
      * Copies the editable fields, trimmed, blanks as null; {@code owned} defaults to true.

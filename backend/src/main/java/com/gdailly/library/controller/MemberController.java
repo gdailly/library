@@ -17,9 +17,12 @@ import com.gdailly.library.dto.MemberRequest;
 import com.gdailly.library.dto.MemberResponse;
 import com.gdailly.library.security.CurrentUser;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 import jakarta.validation.Valid;
 
 @RestController
+@Tag(name = "Members", description = "Membres de la bibliothèque")
 @RequestMapping("/api/library/members")
 class MemberController {
 
