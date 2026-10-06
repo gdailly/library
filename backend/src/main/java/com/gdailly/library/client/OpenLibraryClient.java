@@ -48,12 +48,21 @@ public class OpenLibraryClient implements MetadataClient {
                 title,
                 BookMetadata.text(book.path("subtitle").asString(null)),
                 joinNames(book.path("authors")),
-                BookMetadata.text(book.path("publishers").path(0).path("name").asString(null)),
+                publisher(book.path("publishers").path(0).path("name").asString(null)),
                 BookMetadata.parseYear(book.path("publish_date").asString(null)),
                 BookMetadata.positive(book.path("number_of_pages").asInt(0)),
                 null,
                 null,
                 BookMetadata.text(book.path("cover").path("large").asString(null))));
+    }
+
+    /** Library catalogues bracket inferred values: "[Librairie Générale Française]". */
+    static String publisher(String name) {
+        String text = BookMetadata.text(name);
+        if (text != null && text.startsWith("[") && text.endsWith("]")) {
+            return BookMetadata.text(text.substring(1, text.length() - 1));
+        }
+        return text;
     }
 
     private static String joinNames(JsonNode authors) {

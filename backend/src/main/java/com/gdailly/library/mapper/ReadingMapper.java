@@ -1,24 +1,21 @@
 package com.gdailly.library.mapper;
 
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+import org.mapstruct.MappingTarget;
+
 import com.gdailly.library.dto.ReadingRequest;
 import com.gdailly.library.dto.ReadingResponse;
 import com.gdailly.library.entity.Reading;
 
-public final class ReadingMapper {
+@Mapper(config = MappingConfig.class)
+public interface ReadingMapper {
 
-    private ReadingMapper() {
-    }
+    /** Null when the user has no reading of the book yet. */
+    ReadingResponse toResponse(Reading reading);
 
-    public static ReadingResponse toResponse(Reading reading) {
-        return reading == null ? null : new ReadingResponse(reading.getStatus(), reading.getRating(),
-                reading.getReview(), reading.getStartedOn(), reading.getFinishedOn());
-    }
-
-    public static void updateEntity(Reading reading, ReadingRequest request) {
-        reading.setStatus(request.status());
-        reading.setRating(request.rating());
-        reading.setReview(BookMapper.blankToNull(request.review()));
-        reading.setStartedOn(request.startedOn());
-        reading.setFinishedOn(request.finishedOn());
-    }
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "bookId", ignore = true)
+    @Mapping(target = "userId", ignore = true)
+    void updateEntity(ReadingRequest request, @MappingTarget Reading reading);
 }

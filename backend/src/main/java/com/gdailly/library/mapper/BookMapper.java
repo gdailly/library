@@ -1,50 +1,36 @@
 package com.gdailly.library.mapper;
 
-import java.util.Comparator;
-import java.util.List;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+import org.mapstruct.MappingTarget;
 
 import com.gdailly.library.dto.BookRequest;
 import com.gdailly.library.dto.BookResponse;
-import com.gdailly.library.dto.CategoryResponse;
 import com.gdailly.library.dto.CoverResponse;
 import com.gdailly.library.entity.Book;
-import com.gdailly.library.entity.Category;
 import com.gdailly.library.entity.Reading;
 
-public final class BookMapper {
-
-    private BookMapper() {
-    }
+@Mapper(config = MappingConfig.class, uses = {CategoryMapper.class, ReadingMapper.class})
+public interface BookMapper {
 
     /** {@code myReading} is the caller's reading of this book, {@code cover} its signed URLs; both may be null. */
-    public static BookResponse toResponse(Book book, Reading myReading, CoverResponse cover) {
-        List<CategoryResponse> categories = book.getCategories().stream()
-                .sorted(Comparator.comparing(Category::getName, String.CASE_INSENSITIVE_ORDER))
-                .map(CategoryMapper::toResponse)
-                .toList();
-        return new BookResponse(book.getId(), book.getIsbn13(), book.getTitle(), book.getSubtitle(), book.getAuthors(),
-                book.getPublisher(), book.getYear(), book.getPages(), book.getLanguage(), book.getSummary(),
-                book.isOwned(), book.getAddedBy(), book.getCreatedAt(), categories, ReadingMapper.toResponse(myReading),
-                cover);
-    }
+    @Mapping(target = "id", source = "book.id")
+    @Mapping(target = "categories", source = "book.categories")
+    @Mapping(target = "myReading", source = "myReading")
+    @Mapping(target = "cover", source = "cover")
+    BookResponse toResponse(Book book, Reading myReading, CoverResponse cover);
 
     /**
-     * Copies the editable fields, trimmed, blanks as null.
-     * The ISBN and categories are set by the business layer once validated.
+     * Copies the editable fields, trimmed, blanks as null; {@code owned} defaults to true.
+     * The ISBN, categories and cover are set by the business layer once validated.
      */
-    public static void updateEntity(Book book, BookRequest request) {
-        book.setTitle(request.title().trim());
-        book.setSubtitle(blankToNull(request.subtitle()));
-        book.setAuthors(blankToNull(request.authors()));
-        book.setPublisher(blankToNull(request.publisher()));
-        book.setYear(request.year());
-        book.setPages(request.pages());
-        book.setLanguage(blankToNull(request.language()));
-        book.setSummary(blankToNull(request.summary()));
-        book.setOwned(request.owned() == null || request.owned());
-    }
-
-    public static String blankToNull(String value) {
-        return value == null || value.isBlank() ? null : value.trim();
-    }
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "libraryId", ignore = true)
+    @Mapping(target = "isbn13", ignore = true)
+    @Mapping(target = "coverKey", ignore = true)
+    @Mapping(target = "categories", ignore = true)
+    @Mapping(target = "addedBy", ignore = true)
+    @Mapping(target = "createdAt", ignore = true)
+    @Mapping(target = "owned", defaultValue = "true")
+    void updateEntity(BookRequest request, @MappingTarget Book book);
 }

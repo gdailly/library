@@ -25,7 +25,7 @@ Package Java racine : `com.gdailly.library`. Code rangé par couche, un package 
 | `repository` | Interfaces Spring Data JPA |
 | `entity` | Entités JPA |
 | `dto` | Objets d'entrée/sortie de l'API (records) |
-| `mapper` | Conversion entité ↔ DTO |
+| `mapper` | Conversion entité ↔ DTO avec MapStruct (interfaces, beans Spring, champ non mappé = erreur de build) |
 | `exception` | Exceptions métier (400, 403, 404, 409, 503) |
 | `security` | Utilisateur courant, filtre d'appartenance, signature HMAC des URL de couvertures |
 | `client` | Appels HTTP sortants (Open Library, Google Books, téléchargement des couvertures) |

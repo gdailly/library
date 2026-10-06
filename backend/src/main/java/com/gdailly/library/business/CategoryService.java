@@ -20,14 +20,16 @@ public class CategoryService {
     private static final String DUPLICATE = "Une catégorie porte déjà ce nom.";
 
     private final CategoryRepository categories;
+    private final CategoryMapper categoryMapper;
 
-    CategoryService(CategoryRepository categories) {
+    CategoryService(CategoryRepository categories, CategoryMapper categoryMapper) {
         this.categories = categories;
+        this.categoryMapper = categoryMapper;
     }
 
     @Transactional(readOnly = true)
     public List<CategoryResponse> list(CurrentUser user) {
-        return categories.findByLibraryIdOrderByName(user.libraryId()).stream().map(CategoryMapper::toResponse).toList();
+        return categories.findByLibraryIdOrderByName(user.libraryId()).stream().map(categoryMapper::toResponse).toList();
     }
 
     @Transactional
@@ -36,8 +38,8 @@ public class CategoryService {
             throw new ConflictException(DUPLICATE);
         }
         Category category = new Category(user.libraryId());
-        CategoryMapper.updateEntity(category, request);
-        return CategoryMapper.toResponse(categories.save(category));
+        categoryMapper.updateEntity(request, category);
+        return categoryMapper.toResponse(categories.save(category));
     }
 
     @Transactional
@@ -46,8 +48,8 @@ public class CategoryService {
         if (categories.existsByLibraryIdAndNameIgnoreCaseAndIdNot(user.libraryId(), request.name().trim(), id)) {
             throw new ConflictException(DUPLICATE);
         }
-        CategoryMapper.updateEntity(category, request);
-        return CategoryMapper.toResponse(category);
+        categoryMapper.updateEntity(request, category);
+        return categoryMapper.toResponse(category);
     }
 
     /** Books keep existing; only their link to this category is removed (ON DELETE CASCADE). */

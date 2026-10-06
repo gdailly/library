@@ -27,7 +27,7 @@ public class CoverUrlSigner {
     private final Duration ttl;
     private final Clock clock;
 
-    CoverUrlSigner(LivreProperties properties, Clock clock) {
+    public CoverUrlSigner(LivreProperties properties, Clock clock) {
         String urlSecret = properties.covers().urlSecret();
         if (urlSecret == null || urlSecret.length() < 16) {
             throw new IllegalStateException("COVER_URL_SECRET must be set (at least 16 characters)");

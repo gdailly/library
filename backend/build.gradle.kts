@@ -1,7 +1,9 @@
 plugins {
     java
-    id("org.springframework.boot") version "4.1.1"
-    id("io.spring.dependency-management") version "1.1.7"
+    jacoco
+    alias(libs.plugins.spring.boot)
+    alias(libs.plugins.spring.dependency.management)
+    alias(libs.plugins.pitest)
 }
 
 group = "com.gdailly"
@@ -18,36 +20,39 @@ repositories {
     mavenCentral()
 }
 
-val springdocVersion = "3.1.1"
-val archunitVersion = "1.5.1"
-val thumbnailatorVersion = "0.4.21"
-val webpImageioVersion = "0.11.0"
+// Mockito is attached as a Java agent: dynamic agent loading is deprecated since Java 21.
+val mockitoAgent = configurations.create("mockitoAgent")
 
 dependencies {
-    implementation("org.springframework.boot:spring-boot-starter-actuator")
-    implementation("org.springframework.boot:spring-boot-starter-data-jpa")
-    implementation("org.springframework.boot:spring-boot-starter-liquibase")
-    implementation("org.springframework.boot:spring-boot-starter-security")
-    implementation("org.springframework.boot:spring-boot-starter-security-oauth2-resource-server")
-    implementation("org.springframework.boot:spring-boot-starter-validation")
-    implementation("org.springframework.boot:spring-boot-starter-webmvc")
-    implementation("org.springdoc:springdoc-openapi-starter-webmvc-api:$springdocVersion")
-    implementation("net.coobird:thumbnailator:$thumbnailatorVersion")
+    mockitoAgent(libs.mockito.core) { isTransitive = false }
+
+    implementation(libs.spring.boot.starter.actuator)
+    implementation(libs.spring.boot.starter.data.jpa)
+    implementation(libs.spring.boot.starter.liquibase)
+    implementation(libs.spring.boot.starter.security)
+    implementation(libs.spring.boot.starter.oauth2.resource.server)
+    implementation(libs.spring.boot.starter.validation)
+    implementation(libs.spring.boot.starter.webmvc)
+    implementation(libs.springdoc.webmvc.api)
+    implementation(libs.thumbnailator)
     // ImageIO plugin reading and writing WebP (bundles native libwebp for Linux, Windows and macOS).
-    implementation("com.github.usefulness:webp-imageio:$webpImageioVersion")
-    runtimeOnly("org.mariadb.jdbc:mariadb-java-client")
-    testImplementation("org.springframework.boot:spring-boot-starter-actuator-test")
-    testImplementation("org.springframework.boot:spring-boot-starter-data-jpa-test")
-    testImplementation("org.springframework.boot:spring-boot-starter-liquibase-test")
-    testImplementation("org.springframework.boot:spring-boot-starter-security-oauth2-resource-server-test")
-    testImplementation("org.springframework.boot:spring-boot-starter-security-test")
-    testImplementation("org.springframework.boot:spring-boot-starter-validation-test")
-    testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
-    testImplementation("org.springframework.boot:spring-boot-testcontainers")
-    testImplementation("org.testcontainers:testcontainers-junit-jupiter")
-    testImplementation("org.testcontainers:testcontainers-mariadb")
-    testImplementation("com.tngtech.archunit:archunit-junit5:$archunitVersion")
-    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    implementation(libs.webp.imageio)
+    implementation(libs.mapstruct)
+    annotationProcessor(libs.mapstruct.processor)
+    runtimeOnly(libs.mariadb.client)
+
+    testImplementation(libs.spring.boot.starter.actuator.test)
+    testImplementation(libs.spring.boot.starter.data.jpa.test)
+    testImplementation(libs.spring.boot.starter.liquibase.test)
+    testImplementation(libs.spring.boot.starter.oauth2.resource.server.test)
+    testImplementation(libs.spring.boot.starter.security.test)
+    testImplementation(libs.spring.boot.starter.validation.test)
+    testImplementation(libs.spring.boot.starter.webmvc.test)
+    testImplementation(libs.spring.boot.testcontainers)
+    testImplementation(libs.testcontainers.junit.jupiter)
+    testImplementation(libs.testcontainers.mariadb)
+    testImplementation(libs.archunit.junit5)
+    testRuntimeOnly(libs.junit.platform.launcher)
 }
 
 tasks.withType<JavaCompile> {
@@ -55,16 +60,17 @@ tasks.withType<JavaCompile> {
     options.compilerArgs.add("-parameters")
 }
 
-tasks.withType<Test> {
-    useJUnitPlatform()
-    jvmArgs("--enable-native-access=ALL-UNNAMED")
-}
-
-// Unit tests (*Test) run with `test`; integration tests (*IT) need Docker and run with `integrationTest`.
 tasks.named<org.springframework.boot.gradle.tasks.run.BootRun>("bootRun") {
     jvmArgs("--enable-native-access=ALL-UNNAMED")
 }
 
+tasks.withType<Test> {
+    useJUnitPlatform()
+    jvmArgs("--enable-native-access=ALL-UNNAMED")
+    jvmArgs("-javaagent:${mockitoAgent.asPath}")
+}
+
+// Unit tests (*Test) run with `test`; integration tests (*IT) need Docker and run with `integrationTest`.
 tasks.test {
     exclude("**/*IT.class")
 }
@@ -80,4 +86,45 @@ val integrationTest = tasks.register<Test>("integrationTest") {
 
 tasks.check {
     dependsOn(integrationTest)
+}
+
+// Coverage of unit and integration tests together: build/reports/jacoco/test/html/index.html
+jacoco {
+    toolVersion = libs.versions.jacoco.get()
+}
+
+tasks.jacocoTestReport {
+    dependsOn(tasks.test, integrationTest)
+    executionData(tasks.test.get(), integrationTest.get())
+    reports {
+        xml.required = true
+        csv.required = true
+        html.required = true
+    }
+}
+
+tasks.check {
+    dependsOn(tasks.jacocoTestReport)
+}
+
+// Mutation testing of the unit tests (slow, not part of `check`): ./gradlew pitest
+// Report: build/reports/pitest/index.html
+pitest {
+    pitestVersion = libs.versions.pitest.core.get()
+    junit5PluginVersion = libs.versions.pitest.junit5.get()
+    // Keep the JUnit 6 launcher of Spring Boot instead of the JUnit 5 one the plugin would force.
+    addJUnitPlatformLauncher = false
+    targetClasses = setOf(
+        "com.gdailly.library.business.*",
+        "com.gdailly.library.client.*",
+        "com.gdailly.library.security.*",
+        "com.gdailly.library.storage.*",
+        "com.gdailly.library.util.*",
+    )
+    targetTests = setOf("com.gdailly.library.*Test")
+    excludedTestClasses = setOf("*IT", "com.gdailly.library.LayeredArchitectureTest")
+    jvmArgs = listOf("--enable-native-access=ALL-UNNAMED", "-javaagent:${mockitoAgent.asPath}")
+    threads = 4
+    outputFormats = setOf("HTML", "XML")
+    timestampedReports = false
 }
