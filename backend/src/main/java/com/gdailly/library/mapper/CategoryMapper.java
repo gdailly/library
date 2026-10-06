@@ -16,7 +16,12 @@ import com.gdailly.library.entity.Category;
 @Mapper(config = MappingConfig.class, imports = Locale.class)
 public interface CategoryMapper {
 
+    /** A category attached to a book, without book count. */
+    @Mapping(target = "bookCount", ignore = true)
     CategoryResponse toResponse(Category category);
+
+    @Mapping(target = "bookCount", source = "bookCount")
+    CategoryResponse toResponse(Category category, Long bookCount);
 
     /** Sorted by name, case-insensitive. */
     default List<CategoryResponse> toSortedResponses(Collection<Category> categories) {

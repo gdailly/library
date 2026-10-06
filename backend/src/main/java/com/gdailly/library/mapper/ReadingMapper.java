@@ -5,6 +5,7 @@ import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
 
 import com.gdailly.library.dto.ReadingRequest;
+import com.gdailly.library.dto.OtherReadingResponse;
 import com.gdailly.library.dto.ReadingResponse;
 import com.gdailly.library.entity.Reading;
 
@@ -18,4 +19,8 @@ public interface ReadingMapper {
     @Mapping(target = "bookId", ignore = true)
     @Mapping(target = "userId", ignore = true)
     void updateEntity(ReadingRequest request, @MappingTarget Reading reading);
+
+    @Mapping(target = "userId", source = "reading.userId")
+    @Mapping(target = "name", source = "name")
+    OtherReadingResponse toOtherReading(Reading reading, String name);
 }

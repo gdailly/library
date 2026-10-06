@@ -8,7 +8,10 @@ import com.gdailly.library.business.UserService;
 import com.gdailly.library.dto.MeResponse;
 import com.gdailly.library.security.CurrentUser;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 @RestController
+@Tag(name = "Me", description = "Utilisateur connecté")
 @RequestMapping("/api/me")
 class MeController {
 

@@ -42,6 +42,10 @@ class CategoryControllerIT extends IntegrationTest {
         long book = createBook("{\"title\": \"Hypérion\", \"categoryIds\": [" + sf + ", " + classic + "]}");
         createBook("{\"title\": \"Madame Bovary\", \"categoryIds\": [" + classic + "]}");
 
+        mvc.perform(get("/api/categories").with(owner()))
+                .andExpect(jsonPath("$[?(@.id == " + classic + ")].bookCount").value(hasItem(2)))
+                .andExpect(jsonPath("$[?(@.id == " + sf + ")].bookCount").value(hasItem(1)));
+
         mvc.perform(get("/api/books/{id}", book).with(owner()))
                 .andExpect(jsonPath("$.categories[0].name").value("Classiques"))
                 .andExpect(jsonPath("$.categories[1].name").value("Science-fiction"));

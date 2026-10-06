@@ -16,6 +16,7 @@ import java.util.Set;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.assertj.core.groups.Tuple;
 import org.mockito.ArgumentCaptor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -27,6 +28,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 
 import com.gdailly.library.dto.BookRequest;
 import com.gdailly.library.dto.BookResponse;
+import com.gdailly.library.entity.AppUser;
 import com.gdailly.library.entity.Book;
 import com.gdailly.library.entity.Category;
 import com.gdailly.library.entity.Reading;
@@ -38,6 +40,7 @@ import com.gdailly.library.exception.NotFoundException;
 import com.gdailly.library.mapper.BookMapperImpl;
 import com.gdailly.library.mapper.CategoryMapperImpl;
 import com.gdailly.library.mapper.ReadingMapperImpl;
+import com.gdailly.library.repository.AppUserRepository;
 import com.gdailly.library.repository.BookFilter;
 import com.gdailly.library.repository.BookRepository;
 import com.gdailly.library.repository.CategoryRepository;
@@ -51,10 +54,11 @@ class BookServiceTest {
     private final BookRepository books = mock(BookRepository.class);
     private final CategoryRepository categories = mock(CategoryRepository.class);
     private final ReadingRepository readings = mock(ReadingRepository.class);
+    private final AppUserRepository users = mock(AppUserRepository.class);
     private final CoverService covers = mock(CoverService.class);
-    private final BookService service = new BookService(books, categories, readings, covers,
+    private final BookService service = new BookService(books, categories, readings, users, covers,
             mock(PlatformTransactionManager.class),
-            new BookMapperImpl(new CategoryMapperImpl(), new ReadingMapperImpl()));
+            new BookMapperImpl(new CategoryMapperImpl(), new ReadingMapperImpl()), new ReadingMapperImpl());
 
     @BeforeEach
     void setUp() {
@@ -205,6 +209,41 @@ class BookServiceTest {
     }
 
     @Test
+    void showsWhoAddedTheBookAndTheOtherMembersReadings() {
+        Book book = new Book(1L, 2L);
+        ReflectionTestUtils.setField(book, "id", 5L);
+        Reading claire = new Reading(5L, 2L);
+        claire.setStatus(ReadingStatus.READ);
+        claire.setRating(4);
+        Reading ben = new Reading(5L, 3L);
+        ben.setStatus(ReadingStatus.READING);
+        when(books.findByIdAndLibraryId(5L, 1L)).thenReturn(Optional.of(book));
+        when(readings.findByBookIdAndUserIdNot(5L, 7L)).thenReturn(List.of(claire, ben));
+        when(users.findAllById(Set.of(2L, 3L))).thenReturn(List.of(
+                user(2L, "claire@example.com", "Claire"), user(3L, "ben.martin@example.com", null)));
+
+        BookResponse response = service.get(USER, 5L);
+
+        assertThat(response.addedByName()).isEqualTo("Claire");
+        assertThat(response.otherReadings()).extracting("name", "status", "rating").containsExactly(
+                Tuple.tuple("ben.martin", ReadingStatus.READING, null),
+                Tuple.tuple("Claire", ReadingStatus.READ, 4));
+    }
+
+    @Test
+    void hasNoAuthorNameWhenTheMemberLeft() {
+        Book book = new Book(1L, null);
+        ReflectionTestUtils.setField(book, "id", 5L);
+        when(books.findByIdAndLibraryId(5L, 1L)).thenReturn(Optional.of(book));
+
+        BookResponse response = service.get(USER, 5L);
+
+        assertThat(response.addedByName()).isNull();
+        assertThat(response.otherReadings()).isEmpty();
+        verify(users, never()).findAllById(any());
+    }
+
+    @Test
     void buildsFilterFromCriteria() {
         BookFilter filter = BookService.filterFor(USER,
                 new BookService.SearchCriteria("  Le PETIT ", false, 3L, ReadingStatus.READ, 4));
@@ -237,6 +276,13 @@ class BookServiceTest {
         ArgumentCaptor<Book> saved = ArgumentCaptor.forClass(Book.class);
         verify(books).save(saved.capture());
         return saved.getValue();
+    }
+
+    private static AppUser user(long id, String email, String name) {
+        AppUser user = new AppUser(email);
+        ReflectionTestUtils.setField(user, "id", id);
+        user.updateProfile(name, null);
+        return user;
     }
 
     private static Category category(long id, String name) {

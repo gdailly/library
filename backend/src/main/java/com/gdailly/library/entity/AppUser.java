@@ -56,6 +56,11 @@ public class AppUser {
         return createdAt;
     }
 
+    /** Google name, or the start of the e-mail address until the first sign-in. */
+    public String displayName() {
+        return name != null ? name : email.substring(0, email.indexOf('@'));
+    }
+
     /** Refreshes the profile from the Google token; returns true when something changed. */
     public boolean updateProfile(String name, String avatarUrl) {
         boolean changed = false;

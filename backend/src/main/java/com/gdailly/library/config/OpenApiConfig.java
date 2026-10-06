@@ -6,6 +6,7 @@ import org.springframework.context.annotation.Configuration;
 
 import com.gdailly.library.security.CurrentUser;
 
+import io.swagger.v3.core.jackson.ModelResolver;
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
@@ -21,6 +22,8 @@ class OpenApiConfig {
     static {
         // Resolved from the request, not sent by clients.
         SpringDocUtils.getConfig().addRequestWrapperToIgnore(CurrentUser.class);
+        // One shared schema per enum (ReadingStatus, Role...) instead of a copy inside each model.
+        ModelResolver.enumsAsRef = true;
     }
 
     @Bean

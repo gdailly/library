@@ -1,9 +1,13 @@
 package com.gdailly.library.business;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -18,7 +22,9 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import com.gdailly.library.dto.BookRequest;
 import com.gdailly.library.dto.BookResponse;
+import com.gdailly.library.dto.OtherReadingResponse;
 import com.gdailly.library.dto.PageResponse;
+import com.gdailly.library.entity.AppUser;
 import com.gdailly.library.entity.Book;
 import com.gdailly.library.entity.Category;
 import com.gdailly.library.entity.Reading;
@@ -27,6 +33,8 @@ import com.gdailly.library.exception.BadRequestException;
 import com.gdailly.library.exception.ConflictException;
 import com.gdailly.library.exception.NotFoundException;
 import com.gdailly.library.mapper.BookMapper;
+import com.gdailly.library.mapper.ReadingMapper;
+import com.gdailly.library.repository.AppUserRepository;
 import com.gdailly.library.repository.BookFilter;
 import com.gdailly.library.repository.BookRepository;
 import com.gdailly.library.repository.BookSpecifications;
@@ -44,18 +52,23 @@ public class BookService {
     private final BookRepository books;
     private final CategoryRepository categories;
     private final ReadingRepository readings;
+    private final AppUserRepository users;
     private final CoverService covers;
     private final TransactionTemplate transaction;
     private final BookMapper bookMapper;
+    private final ReadingMapper readingMapper;
 
-    BookService(BookRepository books, CategoryRepository categories, ReadingRepository readings, CoverService covers,
-            PlatformTransactionManager transactionManager, BookMapper bookMapper) {
+    BookService(BookRepository books, CategoryRepository categories, ReadingRepository readings,
+            AppUserRepository users, CoverService covers, PlatformTransactionManager transactionManager,
+            BookMapper bookMapper, ReadingMapper readingMapper) {
         this.books = books;
         this.categories = categories;
         this.readings = readings;
+        this.users = users;
         this.covers = covers;
         this.transaction = new TransactionTemplate(transactionManager);
         this.bookMapper = bookMapper;
+        this.readingMapper = readingMapper;
     }
 
     /** Criteria of GET /api/books; null means no filter. {@code status} and {@code minRating} apply to the caller's readings. */
@@ -71,8 +84,9 @@ public class BookService {
         Map<Long, Reading> myReadings = ids.isEmpty() ? Map.of()
                 : readings.findByUserIdAndBookIdIn(user.userId(), ids).stream()
                         .collect(Collectors.toMap(Reading::getBookId, Function.identity()));
-        return PageResponse.of(result,
-                book -> bookMapper.toResponse(book, myReadings.get(book.getId()), covers.urls(book)));
+        Map<Long, String> names = names(result.getContent().stream().map(Book::getAddedBy).toList());
+        return PageResponse.of(result, book -> bookMapper.toResponse(book, myReadings.get(book.getId()),
+                covers.urls(book), nameOf(names, book.getAddedBy()), List.of()));
     }
 
     @Transactional(readOnly = true)
@@ -113,10 +127,32 @@ public class BookService {
         return books.findByIdAndLibraryId(id, user.libraryId()).orElseThrow(NotFoundException::new);
     }
 
+    /** A single book, with the readings of the other members. */
     BookResponse toResponse(CurrentUser user, Book book) {
-        Reading myReading = book.getId() == null ? null
-                : readings.findByBookIdAndUserId(book.getId(), user.userId()).orElse(null);
-        return bookMapper.toResponse(book, myReading, covers.urls(book));
+        Reading myReading = readings.findByBookIdAndUserId(book.getId(), user.userId()).orElse(null);
+        List<Reading> others = readings.findByBookIdAndUserIdNot(book.getId(), user.userId());
+        List<Long> userIds = new ArrayList<>(others.stream().map(Reading::getUserId).toList());
+        userIds.add(book.getAddedBy());
+        Map<Long, String> names = names(userIds);
+        List<OtherReadingResponse> otherReadings = others.stream()
+                .filter(reading -> names.containsKey(reading.getUserId()))
+                .sorted(Comparator.comparing(reading -> names.get(reading.getUserId()), String.CASE_INSENSITIVE_ORDER))
+                .map(reading -> readingMapper.toOtherReading(reading, names.get(reading.getUserId())))
+                .toList();
+        return bookMapper.toResponse(book, myReading, covers.urls(book), nameOf(names, book.getAddedBy()),
+                otherReadings);
+    }
+
+    /** Immutable maps reject null keys: a book whose member left has no author id. */
+    private static String nameOf(Map<Long, String> names, Long userId) {
+        return userId == null ? null : names.get(userId);
+    }
+
+    /** Display names of members, by user id; null ids and unknown users are left out. */
+    private Map<Long, String> names(Collection<Long> userIds) {
+        Set<Long> ids = userIds.stream().filter(Objects::nonNull).collect(Collectors.toSet());
+        return ids.isEmpty() ? Map.of()
+                : users.findAllById(ids).stream().collect(Collectors.toMap(AppUser::getId, AppUser::displayName));
     }
 
     private void apply(CurrentUser user, Book book, BookRequest request) {

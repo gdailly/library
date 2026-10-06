@@ -32,3 +32,6 @@ Thumbs.db
 
 # Couvertures en développement local (hors Docker)
 backend/covers/
+
+# Outils téléchargés par les scripts
+scripts/.cache/
