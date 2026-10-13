@@ -1,0 +1,6 @@
+.dart_tool/
+build/
+android/
+**/.dart_tool/
+**/build/
+*.iml

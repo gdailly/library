@@ -12,12 +12,13 @@ En local, le plus simple : renseigner `.env.local` à la racine, puis `./scripts
 flutter test                 # tests unitaires et de widgets
 flutter analyze              # analyse statique (règles dans analysis_options.yaml)
 flutter run -d chrome --dart-define=API_BASE_URL=http://localhost:8080 --dart-define=GOOGLE_CLIENT_ID=<client ID web>
-flutter build web --dart-define=API_BASE_URL=... --dart-define=GOOGLE_CLIENT_ID=...
+flutter build web --dart-define=GOOGLE_CLIENT_ID=...       # servi avec l'API : voir frontend/Dockerfile
+flutter build apk --release --dart-define=API_BASE_URL=https://livre.duckdns.org --dart-define=GOOGLE_CLIENT_ID=...
 ```
 
 | Variable (`--dart-define`) | Rôle |
 | --- | --- |
-| `API_BASE_URL` | Racine du backend, `http://localhost:8080` par défaut |
+| `API_BASE_URL` | Racine du backend. Par défaut : l'origine de la page sur le web (app servie avec l'API, voir `docs/deploiement.md`), `http://localhost:8080` ailleurs. Sur Android, une adresse en `http://` autorise le HTTP non chiffré dans l'APK |
 | `GOOGLE_CLIENT_ID` | Client ID OAuth **web** : connexion sur le web, et « server client ID » sur Android pour que le backend reçoive la même audience |
 
 Le backend doit autoriser l'origine du frontend web : `CORS_ALLOWED_ORIGINS` (par exemple `http://localhost:5000` avec `flutter run -d chrome --web-port 5000`).

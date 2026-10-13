@@ -34,7 +34,8 @@ library/
 
 ## Démarrage rapide
 
-À venir avec le squelette du projet (`infra/docker-compose.yml`).
+- Développement : `.env.local` à la racine (modèle `infra/.env.example`), puis `./scripts/dev-backend.sh` et `./scripts/dev-web.sh`.
+- Serveur (Docker, HTTPS automatique) : [docs/deploiement.md](docs/deploiement.md).
 
 ## Documentation
 
