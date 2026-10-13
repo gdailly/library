@@ -1,0 +1,26 @@
+# SITE_ADDRESS (infra/.env):
+#   - a domain name, e.g. livre.duckdns.org: HTTPS with a Let's Encrypt certificate, obtained and renewed automatically;
+#   - ":80": plain HTTP on the server's IP address, without certificate.
+{$SITE_ADDRESS} {
+	encode zstd gzip
+
+	handle /api/* {
+		reverse_proxy backend:8080
+	}
+
+	handle {
+		root * /srv
+		# Flutter routes (/books/42…) are handled by the app itself.
+		try_files {path} /index.html
+		file_server
+		@shell path / /index.html /flutter_bootstrap.js /flutter_service_worker.js /version.json /manifest.json
+		header @shell Cache-Control "no-cache"
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+}

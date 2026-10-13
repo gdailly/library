@@ -1,8 +1,18 @@
+import java.util.Base64
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
+
+// Values given with --dart-define, which Flutter passes to Gradle base64-encoded.
+val dartDefines: Map<String, String> = (project.findProperty("dart-defines") as String?)
+    ?.split(",")
+    ?.map { String(Base64.getDecoder().decode(it)) }
+    ?.mapNotNull { define -> define.split("=", limit = 2).takeIf { it.size == 2 }?.let { it[0] to it[1] } }
+    ?.toMap()
+    ?: emptyMap()
 
 android {
     namespace = "com.gdailly.library"
@@ -27,9 +37,16 @@ android {
         // flag during build.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        // Plain HTTP only for a server reached without HTTPS (address given by API_BASE_URL).
+        manifestPlaceholders["usesCleartextTraffic"] =
+            dartDefines["API_BASE_URL"].orEmpty().startsWith("http://").toString()
     }
 
     buildTypes {
+        debug {
+            // The development backend runs on http://localhost:8080 or the computer's address.
+            manifestPlaceholders["usesCleartextTraffic"] = "true"
+        }
         release {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.

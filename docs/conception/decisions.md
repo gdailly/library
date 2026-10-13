@@ -1,6 +1,6 @@
 # Décisions
 
-Dernière mise à jour : 2026-10-05
+Dernière mise à jour : 2026-10-13
 
 | Sujet | Décision |
 | --- | --- |
@@ -31,3 +31,4 @@ Dernière mise à jour : 2026-10-05
 | Frontend (2026-10-06) | Flutter 3.47, Riverpod 3 (sans génération de code, relance automatique désactivée), go_router, organisation par fonctionnalité (`core/`, `features/`, `shared/`) ; widgets Material via le paquet `material_ui` (sorti du SDK) |
 | Client API Dart (2026-10-06) | Généré par openapi-generator (`dart-dio`, `json_serializable`) dans `frontend/packages/library_api` via `scripts/generate-api-client.sh` ; champs obligatoires = composants des records Java non annotés `@Nullable` (JSpecify), énumérations partagées |
 | Connexion Flutter (2026-10-06) | Bouton officiel Google (GIS) sur le web, `authenticate()` sur Android ; un seul client ID OAuth web (server client ID sur Android) ; polices chargées à l'exécution par `google_fonts` |
+| Déploiement (2026-10-13) | `infra/docker-compose.prod.yml` : Caddy sert l'app web et transmet `/api` au backend (même origine, pas de CORS) ; HTTPS Let's Encrypt automatique si `SITE_ADDRESS` est un domaine (DuckDNS par défaut), HTTP sur l'IP sinon ; HTTP non chiffré autorisé sur Android seulement si `API_BASE_URL` commence par `http://` |

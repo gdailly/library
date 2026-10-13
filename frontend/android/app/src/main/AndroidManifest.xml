@@ -1,6 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Plain HTTP is only allowed when the app is built for a server without HTTPS
+         (API_BASE_URL starting with http://), see build.gradle.kts. -->
     <application
         android:label="Library"
+        android:usesCleartextTraffic="${usesCleartextTraffic}"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
