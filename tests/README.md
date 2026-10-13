@@ -8,3 +8,5 @@
 | Bout en bout | `tests/e2e` | Flutter integration_test ou Playwright (web) contre la stack docker-compose |
 | Recette manuelle | `tests/plans` | Cahiers de recette par lot |
 | Données de test | `tests/data` | ISBN de référence, photos de couvertures et d'étagères |
+
+Cahiers de recette : [lot 1](plans/recette-lot1.md).
