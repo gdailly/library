@@ -1,7 +1,9 @@
 package com.gdailly.library.business;
 
+import java.util.Collection;
 import java.util.EnumMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
@@ -36,6 +38,9 @@ class MetadataSources {
     private static final Logger log = LoggerFactory.getLogger(MetadataSources.class);
     private static final String SOURCES = "sources";
 
+    /** The external sources, in the order of their clients. */
+    static final List<LookupSource> ALL = List.of(LookupSource.OPEN_LIBRARY, LookupSource.GOOGLE_BOOKS, LookupSource.BNF);
+
     private final Map<LookupSource, MetadataClient> clients = new LinkedHashMap<>();
     private final JsonMapper json;
 
@@ -54,11 +59,20 @@ class MetadataSources {
     }
 
     Answers fetchAll(String isbn13) {
+        return fetch(isbn13, clients.keySet());
+    }
+
+    /** Like {@link #fetchAll} for some sources only. */
+    Answers fetch(String isbn13, Collection<LookupSource> sources) {
         Map<LookupSource, Future<Optional<String>>> calls = new EnumMap<>(LookupSource.class);
         Map<LookupSource, String> payloads = new EnumMap<>(LookupSource.class);
         boolean incomplete = false;
         try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
-            clients.forEach((source, client) -> calls.put(source, executor.submit(() -> client.fetch(isbn13))));
+            clients.forEach((source, client) -> {
+                if (sources.contains(source)) {
+                    calls.put(source, executor.submit(() -> client.fetch(isbn13)));
+                }
+            });
             for (var call : calls.entrySet()) {
                 try {
                     call.getValue().get().ifPresent(payload -> payloads.put(call.getKey(), payload));
@@ -83,6 +97,11 @@ class MetadataSources {
 
     /** Understood answers of a cached entry; empty when it is NOT_FOUND or can no longer be read. */
     Map<LookupSource, BookMetadata> decode(IsbnLookup entry) {
+        return parse(entry.getIsbn13(), rawPayloads(entry));
+    }
+
+    /** Raw answers stored in a cached entry, by source; empty when it is NOT_FOUND. */
+    Map<LookupSource, String> rawPayloads(IsbnLookup entry) {
         if (entry.getSource() == LookupSource.NOT_FOUND || entry.getPayload() == null) {
             return new EnumMap<>(LookupSource.class);
         }
@@ -99,7 +118,7 @@ class MetadataSources {
                 }
             }
         }
-        return parse(entry.getIsbn13(), payloads);
+        return payloads;
     }
 
     /** The "sources" object of a multi-source payload; null for a single raw answer (older rows). */

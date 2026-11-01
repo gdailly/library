@@ -12,5 +12,6 @@ import com.gdailly.library.entity.AppUser;
 public interface UserMapper {
 
     @Mapping(target = "libraries", source = "libraries")
-    MeResponse toMeResponse(AppUser user, List<MeResponse.LibrarySummary> libraries);
+    @Mapping(target = "admin", source = "admin")
+    MeResponse toMeResponse(AppUser user, List<MeResponse.LibrarySummary> libraries, boolean admin);
 }

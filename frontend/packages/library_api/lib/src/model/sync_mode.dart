@@ -9,7 +9,9 @@ enum SyncMode {
   @JsonValue(r'FILL')
   FILL(r'FILL'),
   @JsonValue(r'REPLACE')
-  REPLACE(r'REPLACE');
+  REPLACE(r'REPLACE'),
+  @JsonValue(r'FETCH')
+  FETCH(r'FETCH');
 
   const SyncMode(this.value);
 

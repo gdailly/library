@@ -43,6 +43,7 @@ void main() {
     id: 1,
     email: 'owner@example.com',
     libraries: [LibrarySummary(id: 10, name: 'Ma bibliothèque', role: Role.OWNER)],
+    admin: true,
   );
 
   ProviderContainer start() {

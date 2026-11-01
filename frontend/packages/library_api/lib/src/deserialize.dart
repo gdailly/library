@@ -1,3 +1,6 @@
+import 'package:library_api/src/model/apply_metadata_request.dart';
+import 'package:library_api/src/model/book_metadata_response.dart';
+import 'package:library_api/src/model/book_metadata_summary.dart';
 import 'package:library_api/src/model/book_request.dart';
 import 'package:library_api/src/model/book_response.dart';
 import 'package:library_api/src/model/book_sync_response.dart';
@@ -13,9 +16,11 @@ import 'package:library_api/src/model/member_response.dart';
 import 'package:library_api/src/model/metadata_admin_response.dart';
 import 'package:library_api/src/model/metadata_sync_job_response.dart';
 import 'package:library_api/src/model/other_reading_response.dart';
+import 'package:library_api/src/model/page_response_book_metadata_summary.dart';
 import 'package:library_api/src/model/page_response_book_response.dart';
 import 'package:library_api/src/model/reading_request.dart';
 import 'package:library_api/src/model/reading_response.dart';
+import 'package:library_api/src/model/source_metadata_response.dart';
 
 final _regList = RegExp(r'^List<(.*)>$');
 final _regSet = RegExp(r'^Set<(.*)>$');
@@ -35,6 +40,12 @@ final _regMap = RegExp(r'^Map<String,(.*)>$');
           return (valueString == 'true' || valueString == '1') as ReturnType;
         case 'double':
           return (value is double ? value : double.parse('$value')) as ReturnType;
+        case 'ApplyMetadataRequest':
+          return ApplyMetadataRequest.fromJson(value as Map<String, dynamic>) as ReturnType;
+        case 'BookMetadataResponse':
+          return BookMetadataResponse.fromJson(value as Map<String, dynamic>) as ReturnType;
+        case 'BookMetadataSummary':
+          return BookMetadataSummary.fromJson(value as Map<String, dynamic>) as ReturnType;
         case 'BookRequest':
           return BookRequest.fromJson(value as Map<String, dynamic>) as ReturnType;
         case 'BookResponse':
@@ -71,6 +82,8 @@ final _regMap = RegExp(r'^Map<String,(.*)>$');
           return MetadataSyncJobResponse.fromJson(value as Map<String, dynamic>) as ReturnType;
         case 'OtherReadingResponse':
           return OtherReadingResponse.fromJson(value as Map<String, dynamic>) as ReturnType;
+        case 'PageResponseBookMetadataSummary':
+          return PageResponseBookMetadataSummary.fromJson(value as Map<String, dynamic>) as ReturnType;
         case 'PageResponseBookResponse':
           return PageResponseBookResponse.fromJson(value as Map<String, dynamic>) as ReturnType;
         case 'ReadingRequest':
@@ -83,6 +96,8 @@ final _regMap = RegExp(r'^Map<String,(.*)>$');
         case 'Role':
           
           
+        case 'SourceMetadataResponse':
+          return SourceMetadataResponse.fromJson(value as Map<String, dynamic>) as ReturnType;
         case 'SyncMode':
           
           

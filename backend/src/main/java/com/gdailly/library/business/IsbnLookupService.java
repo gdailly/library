@@ -4,6 +4,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.EnumMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Predicate;
@@ -71,6 +72,36 @@ public class IsbnLookupService {
         return resolve(isbn13, entry -> entry.getFetchedAt().isAfter(since));
     }
 
+    /**
+     * Queries one source again and stores its answer beside the others' cached answers; returns that source's answer,
+     * empty when it does not know the ISBN. Throws {@link ServiceUnavailableException} when it cannot answer.
+     */
+    Optional<BookMetadata> refreshSource(String isbn13, LookupSource source) {
+        Map<LookupSource, String> payloads = new EnumMap<>(LookupSource.class);
+        cache.findById(isbn13).map(sources::rawPayloads).ifPresent(payloads::putAll);
+        MetadataSources.Answers answers = sources.fetch(isbn13, List.of(source));
+        if (answers.incomplete()) {
+            throw new ServiceUnavailableException("La source ne répond pas pour le moment, réessayez plus tard.");
+        }
+        payloads.remove(source);
+        payloads.putAll(answers.payloads());
+        store(isbn13, payloads);
+        return Optional.ofNullable(sources.parse(isbn13, answers.payloads()).get(source));
+    }
+
+    private Optional<MetadataMerger.Merged> store(String isbn13, Map<LookupSource, String> payloads) {
+        Map<LookupSource, BookMetadata> parsed = sources.parse(isbn13, payloads);
+        Optional<MetadataMerger.Merged> merged = MetadataMerger.merge(parsed);
+        if (merged.isEmpty()) {
+            cache.save(new IsbnLookup(isbn13, LookupSource.NOT_FOUND, null, Instant.now(clock)));
+            return merged;
+        }
+        Map<LookupSource, String> known = new EnumMap<>(payloads);
+        known.keySet().retainAll(parsed.keySet());
+        cache.save(new IsbnLookup(isbn13, merged.get().source(), sources.encode(known), Instant.now(clock)));
+        return merged;
+    }
+
     private Optional<MetadataMerger.Merged> resolve(String isbn13, Predicate<IsbnLookup> usable) {
         Optional<IsbnLookup> entry = cache.findById(isbn13).filter(usable);
         if (entry.isPresent()) {
@@ -85,20 +116,11 @@ public class IsbnLookupService {
         }
 
         MetadataSources.Answers answers = sources.fetchAll(isbn13);
-        Map<LookupSource, BookMetadata> parsed = sources.parse(isbn13, answers.payloads());
-        Optional<MetadataMerger.Merged> merged = MetadataMerger.merge(parsed);
-        if (merged.isPresent()) {
-            Map<LookupSource, String> known = new EnumMap<>(answers.payloads());
-            known.keySet().retainAll(parsed.keySet());
-            cache.save(new IsbnLookup(isbn13, merged.get().source(), sources.encode(known), Instant.now(clock)));
-            return merged;
-        }
-        if (answers.incomplete()) {
+        if (answers.incomplete() && MetadataMerger.merge(sources.parse(isbn13, answers.payloads())).isEmpty()) {
             // Do not remember "not found" when a source could not answer.
             throw new ServiceUnavailableException("Recherche ISBN momentanément indisponible, réessayez ou saisissez le livre.");
         }
-        cache.save(new IsbnLookup(isbn13, LookupSource.NOT_FOUND, null, Instant.now(clock)));
-        return Optional.empty();
+        return store(isbn13, answers.payloads());
     }
 
     private boolean isFresh(IsbnLookup entry) {

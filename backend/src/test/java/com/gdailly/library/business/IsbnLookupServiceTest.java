@@ -200,6 +200,27 @@ class IsbnLookupServiceTest {
     }
 
     @Test
+    void refreshesOneSourceAndKeepsTheOthersAnswers() {
+        cached(LookupSource.OPEN_LIBRARY, "{\"sources\":{\"OPEN_LIBRARY\":\"ol\",\"GOOGLE_BOOKS\":\"old\"}}", Duration.ofDays(30));
+        when(googleBooks.fetch(ISBN)).thenReturn(Optional.of("gb"));
+
+        assertThat(service.refreshSource(ISBN, LookupSource.GOOGLE_BOOKS)).contains(PETIT_PRINCE);
+
+        verify(openLibrary, never()).fetch(anyString());
+        verify(bnf, never()).fetch(anyString());
+        assertThat(savedEntry().getPayload()).isEqualTo("{\"sources\":{\"OPEN_LIBRARY\":\"ol\",\"GOOGLE_BOOKS\":\"gb\"}}");
+    }
+
+    @Test
+    void reportsASourceThatCannotAnswer() {
+        when(bnf.fetch(ISBN)).thenThrow(new RestClientException("timeout"));
+
+        assertThatThrownBy(() -> service.refreshSource(ISBN, LookupSource.BNF))
+                .isInstanceOf(ServiceUnavailableException.class);
+        verify(cache, never()).save(any());
+    }
+
+    @Test
     void refreshReusesRecentAnswers() {
         cached(LookupSource.OPEN_LIBRARY, "ol", Duration.ofHours(2));
 

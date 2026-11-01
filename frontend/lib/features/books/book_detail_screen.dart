@@ -23,12 +23,12 @@ class BookDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final book = ref.watch(bookProvider(bookId));
     final auth = ref.watch(authControllerProvider);
-    final isOwner = auth is AuthSignedIn && auth.me.libraries.firstOrNull?.role == Role.OWNER;
+    final isAdmin = auth is AuthSignedIn && auth.me.admin;
     return Scaffold(
       appBar: AppBar(
         actions: [
           if (book.value case final loaded?) ...[
-            if (isOwner && loaded.isbn13 != null)
+            if (isAdmin && loaded.isbn13 != null)
               IconButton(
                 tooltip: 'Resynchroniser',
                 icon: const Icon(Icons.sync),

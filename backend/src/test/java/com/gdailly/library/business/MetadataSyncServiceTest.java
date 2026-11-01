@@ -42,8 +42,8 @@ import com.gdailly.library.security.CurrentUser;
 
 class MetadataSyncServiceTest {
 
-    private static final CurrentUser OWNER = new CurrentUser(7L, "owner@example.com", 1L, Role.OWNER);
-    private static final CurrentUser MEMBER = new CurrentUser(8L, "member@example.com", 1L, Role.MEMBER);
+    private static final CurrentUser ADMIN = new CurrentUser(7L, "owner@example.com", 1L, Role.OWNER, true);
+    private static final CurrentUser OTHER_OWNER = new CurrentUser(8L, "member@example.com", 1L, Role.OWNER);
     private static final String ISBN = "9782070360024";
     private static final BookMetadata FOUND = new BookMetadata("L'Étranger", null, "Albert Camus", "Gallimard", 1971,
             191, "fr", "Aujourd'hui, maman est morte.", "https://books.google.com/1");
@@ -97,11 +97,11 @@ class MetadataSyncServiceTest {
         when(lookups.refresh(ISBN, MetadataSyncService.REUSE_RECENT_LOOKUPS)).thenReturn(merged());
         when(covers.importFromIsbn(ISBN)).thenReturn(Optional.of("k".repeat(64)));
 
-        BookSyncResponse response = service.syncBook(OWNER, 5L, SyncMode.FILL);
+        BookSyncResponse response = service.syncBook(ADMIN, 5L, SyncMode.FILL, null);
 
         assertThat(response.outcome()).isEqualTo(SyncOutcome.UPDATED);
         assertThat(response.changedFields()).contains("authors", "cover").doesNotContain("title");
-        verify(bookService).get(OWNER, 5L);
+        verify(bookService).get(ADMIN, 5L);
     }
 
     @Test
@@ -109,7 +109,7 @@ class MetadataSyncServiceTest {
         when(books.findByIdAndLibraryId(5L, 1L)).thenReturn(Optional.of(book("Brouillon", "c".repeat(64))));
         when(lookups.refresh(anyString(), any())).thenReturn(merged());
 
-        service.syncBook(OWNER, 5L, SyncMode.FILL);
+        service.syncBook(ADMIN, 5L, SyncMode.FILL, null);
 
         verify(covers, never()).importFromIsbn(anyString());
     }
@@ -119,7 +119,37 @@ class MetadataSyncServiceTest {
         when(books.findByIdAndLibraryId(5L, 1L)).thenReturn(Optional.of(book("Brouillon", null)));
         when(lookups.refresh(anyString(), any())).thenReturn(Optional.empty());
 
-        assertThat(service.syncBook(OWNER, 5L, SyncMode.REPLACE).outcome()).isEqualTo(SyncOutcome.NOT_FOUND);
+        assertThat(service.syncBook(ADMIN, 5L, SyncMode.REPLACE, null).outcome()).isEqualTo(SyncOutcome.NOT_FOUND);
+    }
+
+    @Test
+    void fetchOnlyRefreshesTheSources() {
+        Book book = book("Brouillon", null);
+        when(books.findByIdAndLibraryId(5L, 1L)).thenReturn(Optional.of(book));
+        when(lookups.refresh(anyString(), any())).thenReturn(merged());
+
+        assertThat(service.syncBook(ADMIN, 5L, SyncMode.FETCH, null).changedFields()).isEmpty();
+        assertThat(book.getAuthors()).isNull();
+        verify(covers, never()).importFromIsbn(anyString());
+    }
+
+    @Test
+    void usesOnlyTheChosenSource() {
+        Book book = book("Brouillon", null);
+        when(books.findByIdAndLibraryId(5L, 1L)).thenReturn(Optional.of(book));
+        when(lookups.refreshSource(ISBN, LookupSource.GOOGLE_BOOKS)).thenReturn(Optional.of(FOUND));
+        when(covers.importFromUrl(FOUND.coverUrl())).thenReturn(Optional.of("g".repeat(64)));
+
+        service.syncBook(ADMIN, 5L, SyncMode.REPLACE, LookupSource.GOOGLE_BOOKS);
+
+        assertThat(book.getTitle()).isEqualTo("L'Étranger");
+        assertThat(book.getCoverKey()).isEqualTo("g".repeat(64));
+        verify(lookups, never()).refresh(anyString(), any());
+    }
+
+    @Test
+    void refusesToReplaceTheWholeLibrary() {
+        assertThatThrownBy(() -> service.startSyncAll(ADMIN, SyncMode.REPLACE)).isInstanceOf(BadRequestException.class);
     }
 
     @Test
@@ -128,15 +158,15 @@ class MetadataSyncServiceTest {
         book.setTitle("Manuscrit");
         when(books.findByIdAndLibraryId(5L, 1L)).thenReturn(Optional.of(book));
 
-        assertThatThrownBy(() -> service.syncBook(OWNER, 5L, SyncMode.FILL)).isInstanceOf(BadRequestException.class);
+        assertThatThrownBy(() -> service.syncBook(ADMIN, 5L, SyncMode.FILL, null)).isInstanceOf(BadRequestException.class);
     }
 
     @Test
-    void isReservedToOwners() {
-        assertThatThrownBy(() -> service.syncBook(MEMBER, 5L, SyncMode.FILL)).isInstanceOf(ForbiddenException.class);
-        assertThatThrownBy(() -> service.startSyncAll(MEMBER)).isInstanceOf(ForbiddenException.class);
-        assertThatThrownBy(() -> service.clearCache(MEMBER, CacheScope.ALL)).isInstanceOf(ForbiddenException.class);
-        assertThatThrownBy(() -> service.overview(MEMBER)).isInstanceOf(ForbiddenException.class);
+    void isReservedToTheAdministratorEvenAmongOwners() {
+        assertThatThrownBy(() -> service.syncBook(OTHER_OWNER, 5L, SyncMode.FILL, null)).isInstanceOf(ForbiddenException.class);
+        assertThatThrownBy(() -> service.startSyncAll(OTHER_OWNER, SyncMode.FILL)).isInstanceOf(ForbiddenException.class);
+        assertThatThrownBy(() -> service.clearCache(OTHER_OWNER, CacheScope.ALL)).isInstanceOf(ForbiddenException.class);
+        assertThatThrownBy(() -> service.overview(OTHER_OWNER)).isInstanceOf(ForbiddenException.class);
         verifyNoInteractions(books, isbnCache, lookups);
     }
 
@@ -145,13 +175,13 @@ class MetadataSyncServiceTest {
         when(isbnCache.deleteAllBySource(LookupSource.NOT_FOUND)).thenReturn(3);
         when(isbnCache.deleteAllEntries()).thenReturn(12);
 
-        assertThat(service.clearCache(OWNER, CacheScope.NOT_FOUND).deleted()).isEqualTo(3);
-        assertThat(service.clearCache(OWNER, CacheScope.ALL).deleted()).isEqualTo(12);
+        assertThat(service.clearCache(ADMIN, CacheScope.NOT_FOUND).deleted()).isEqualTo(3);
+        assertThat(service.clearCache(ADMIN, CacheScope.ALL).deleted()).isEqualTo(12);
     }
 
     @Test
     void resynchronisesTheWholeLibraryInTheBackground() throws InterruptedException {
-        assertThat(service.status(OWNER).state()).isEqualTo(SyncState.IDLE);
+        assertThat(service.status(ADMIN).state()).isEqualTo(SyncState.IDLE);
         when(books.findIdsWithIsbn(1L)).thenReturn(List.of(1L, 2L, 3L));
         when(books.findByIdAndLibraryId(1L, 1L)).thenReturn(Optional.of(book("Brouillon", null)));
         when(books.findByIdAndLibraryId(2L, 1L)).thenReturn(Optional.of(book("Autre", "c".repeat(64))));
@@ -161,7 +191,7 @@ class MetadataSyncServiceTest {
                 .thenReturn(Optional.empty())
                 .thenThrow(new ServiceUnavailableException("down"));
 
-        MetadataSyncJobResponse started = service.startSyncAll(OWNER);
+        MetadataSyncJobResponse started = service.startSyncAll(ADMIN, SyncMode.FILL);
         assertThat(started.state()).isEqualTo(SyncState.RUNNING);
         assertThat(started.total()).isEqualTo(3);
 
@@ -181,14 +211,14 @@ class MetadataSyncServiceTest {
             return Optional.of(book("Lent", null));
         });
 
-        service.startSyncAll(OWNER);
+        service.startSyncAll(ADMIN, SyncMode.FILL);
 
-        assertThatThrownBy(() -> service.startSyncAll(OWNER)).isInstanceOf(ConflictException.class);
+        assertThatThrownBy(() -> service.startSyncAll(ADMIN, SyncMode.FILL)).isInstanceOf(ConflictException.class);
     }
 
     private MetadataSyncJobResponse waitForEnd() throws InterruptedException {
         for (int i = 0; i < 100; i++) {
-            MetadataSyncJobResponse status = service.status(OWNER);
+            MetadataSyncJobResponse status = service.status(ADMIN);
             if (status.state() == SyncState.DONE) {
                 return status;
             }

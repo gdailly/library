@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -88,7 +89,7 @@ public class MetadataSyncService {
 
     @Transactional(readOnly = true)
     public MetadataAdminResponse overview(CurrentUser user) {
-        requireOwner(user);
+        requireAdmin(user);
         return new MetadataAdminResponse(
                 books.countByLibraryId(user.libraryId()),
                 books.findIdsWithIsbn(user.libraryId()).size(),
@@ -99,21 +100,27 @@ public class MetadataSyncService {
 
     /** Progress of the library's full resynchronisation. */
     public MetadataSyncJobResponse status(CurrentUser user) {
-        requireOwner(user);
+        requireAdmin(user);
         return job(user.libraryId());
     }
 
     @Transactional
     public CacheClearResponse clearCache(CurrentUser user, CacheScope scope) {
-        requireOwner(user);
+        requireAdmin(user);
         int deleted = scope == CacheScope.ALL ? isbnCache.deleteAllEntries()
                 : isbnCache.deleteAllBySource(LookupSource.NOT_FOUND);
         return new CacheClearResponse(deleted);
     }
 
-    /** Starts the resynchronisation of every book with an ISBN, completing their empty fields only. */
-    public synchronized MetadataSyncJobResponse startSyncAll(CurrentUser user) {
-        requireOwner(user);
+    /**
+     * Starts the resynchronisation of every book with an ISBN: FILL completes their empty fields only,
+     * FETCH only refreshes the answers of the sources (to compare them before applying anything).
+     */
+    public synchronized MetadataSyncJobResponse startSyncAll(CurrentUser user, SyncMode mode) {
+        requireAdmin(user);
+        if (mode == SyncMode.REPLACE) {
+            throw new BadRequestException("Tout remplacer n'est possible que livre par livre.");
+        }
         Long libraryId = user.libraryId();
         Job current = jobs.get(libraryId);
         if (current != null && current.state == SyncState.RUNNING) {
@@ -123,27 +130,31 @@ public class MetadataSyncService {
         Job job = new Job(ids.size(), Instant.now(clock));
         jobs.put(libraryId, job);
         MetadataSyncJobResponse started = job.toResponse();
-        worker.execute(() -> run(libraryId, ids, job));
+        worker.execute(() -> run(libraryId, ids, job, mode));
         return started;
     }
 
-    public BookSyncResponse syncBook(CurrentUser user, Long bookId, SyncMode mode) {
-        requireOwner(user);
+    /**
+     * Resynchronises one book with all the sources, or with {@code source} only (queried again, and the only one
+     * whose values are used).
+     */
+    public BookSyncResponse syncBook(CurrentUser user, Long bookId, SyncMode mode, LookupSource source) {
+        requireAdmin(user);
         Snapshot snapshot = snapshot(user.libraryId(), bookId);
         if (snapshot.isbn13() == null) {
             throw new BadRequestException("Ce livre n'a pas d'ISBN : il ne peut pas être resynchronisé.");
         }
-        Result result = sync(user.libraryId(), bookId, snapshot, mode);
+        Result result = sync(user.libraryId(), bookId, snapshot, mode, source);
         return new BookSyncResponse(result.outcome(), result.changedFields(), bookService.get(user, bookId));
     }
 
-    private void run(Long libraryId, List<Long> ids, Job job) {
+    private void run(Long libraryId, List<Long> ids, Job job, SyncMode mode) {
         try {
             for (Long id : ids) {
                 if (Thread.currentThread().isInterrupted()) {
                     return;
                 }
-                syncInBackground(libraryId, id, job);
+                syncInBackground(libraryId, id, job, mode);
                 if (!pause.isZero()) {
                     Thread.sleep(pause);
                 }
@@ -155,14 +166,14 @@ public class MetadataSyncService {
         }
     }
 
-    private void syncInBackground(Long libraryId, Long id, Job job) {
+    private void syncInBackground(Long libraryId, Long id, Job job, SyncMode mode) {
         try {
             Snapshot snapshot = snapshot(libraryId, id);
             if (snapshot.isbn13() == null) {
                 job.unchanged.incrementAndGet();
                 return;
             }
-            switch (sync(libraryId, id, snapshot, SyncMode.FILL).outcome()) {
+            switch (sync(libraryId, id, snapshot, mode, null).outcome()) {
                 case UPDATED -> job.updated.incrementAndGet();
                 case UNCHANGED -> job.unchanged.incrementAndGet();
                 case NOT_FOUND -> job.notFound.incrementAndGet();
@@ -184,33 +195,57 @@ public class MetadataSyncService {
         });
     }
 
-    private Result sync(Long libraryId, Long bookId, Snapshot snapshot, SyncMode mode) {
-        Optional<MetadataMerger.Merged> merged = lookups.refresh(snapshot.isbn13(), REUSE_RECENT_LOOKUPS);
-        if (merged.isEmpty()) {
+    private Result sync(Long libraryId, Long bookId, Snapshot snapshot, SyncMode mode, LookupSource source) {
+        String isbn13 = snapshot.isbn13();
+        Optional<BookMetadata> found = source == null
+                ? lookups.refresh(isbn13, REUSE_RECENT_LOOKUPS).map(MetadataMerger.Merged::metadata)
+                : lookups.refreshSource(isbn13, source);
+        if (found.isEmpty()) {
             return new Result(SyncOutcome.NOT_FOUND, List.of());
         }
-        boolean wantsCover = mode == SyncMode.REPLACE || snapshot.coverKey() == null;
-        String coverKey = wantsCover ? covers.importFromIsbn(snapshot.isbn13()).orElse(null) : null;
+        if (mode == SyncMode.FETCH) {
+            return new Result(SyncOutcome.UNCHANGED, List.of());
+        }
+        String coverKey = null;
+        if (mode == SyncMode.REPLACE || snapshot.coverKey() == null) {
+            coverKey = source == null ? covers.importFromIsbn(isbn13).orElse(null)
+                    : Optional.ofNullable(found.get().coverUrl()).flatMap(covers::importFromUrl).orElse(null);
+        }
+        String cover = coverKey;
         return transaction.execute(status -> {
             Book book = books.findByIdAndLibraryId(bookId, libraryId).orElseThrow(NotFoundException::new);
-            List<String> changed = apply(book, merged.get().metadata(), coverKey, mode);
+            List<String> changed = apply(book, found.get(), cover, mode, null);
             return new Result(changed.isEmpty() ? SyncOutcome.UNCHANGED : SyncOutcome.UPDATED, changed);
         });
     }
 
     /** Copies the found values into the book; a value the sources do not know never erases the book's. */
     static List<String> apply(Book book, BookMetadata found, String coverKey, SyncMode mode) {
+        return apply(book, found, coverKey, mode, null);
+    }
+
+    /** Like {@link #apply(Book, BookMetadata, String, SyncMode)} for the named fields only ({@code only} null: all). */
+    static List<String> apply(Book book, BookMetadata found, String coverKey, SyncMode mode, Set<String> only) {
         List<String> changed = new ArrayList<>();
-        Field<String> text = (name, current, value, setter) -> update(changed, mode, name, current, value, setter);
+        Field<String> text = (name, current, value, setter) -> {
+            if (only == null || only.contains(name)) {
+                update(changed, mode, name, current, value, setter);
+            }
+        };
+        Field<Integer> number = (name, current, value, setter) -> {
+            if (only == null || only.contains(name)) {
+                update(changed, mode, name, current, value, setter);
+            }
+        };
         text.apply("title", book.getTitle(), limit(found.title(), 500), book::setTitle);
         text.apply("subtitle", book.getSubtitle(), limit(found.subtitle(), 500), book::setSubtitle);
         text.apply("authors", book.getAuthors(), limit(found.authors(), 1000), book::setAuthors);
         text.apply("publisher", book.getPublisher(), limit(found.publisher(), 300), book::setPublisher);
-        update(changed, mode, "year", book.getYear(), found.year(), book::setYear);
-        update(changed, mode, "pages", book.getPages(), found.pages(), book::setPages);
+        number.apply("year", book.getYear(), found.year(), book::setYear);
+        number.apply("pages", book.getPages(), found.pages(), book::setPages);
         text.apply("language", book.getLanguage(), limit(found.language(), 10), book::setLanguage);
         text.apply("summary", book.getSummary(), limit(found.summary(), 20000), book::setSummary);
-        update(changed, mode, "cover", book.getCoverKey(), coverKey, book::setCoverKey);
+        text.apply("cover", book.getCoverKey(), coverKey, book::setCoverKey);
         return changed;
     }
 
@@ -233,9 +268,9 @@ public class MetadataSyncService {
         return job == null ? new MetadataSyncJobResponse(SyncState.IDLE, 0, 0, 0, 0, 0, 0, null, null) : job.toResponse();
     }
 
-    private static void requireOwner(CurrentUser user) {
-        if (!user.isOwner()) {
-            throw new ForbiddenException("Réservé au propriétaire de la bibliothèque.");
+    static void requireAdmin(CurrentUser user) {
+        if (!user.admin()) {
+            throw new ForbiddenException("Réservé à l'administrateur de l'application.");
         }
     }
 

@@ -22,6 +22,7 @@ class SignedIn extends AuthController {
           id: 1,
           email: 'owner@example.com',
           name: 'Guillaume',
+          admin: role == Role.OWNER,
           libraries: [LibrarySummary(id: 10, name: 'Ma bibliothèque', role: role)],
         ),
       );
@@ -107,7 +108,7 @@ void main() {
     expect(find.text('Administration'), findsNothing);
   });
 
-  testWidgets('offers the administration page to owners', (tester) async {
+  testWidgets('offers the administration page to the administrator', (tester) async {
     await pumpSettings(tester, Role.OWNER);
 
     expect(find.text('Administration'), findsOneWidget);

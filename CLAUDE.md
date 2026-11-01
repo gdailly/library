@@ -57,6 +57,7 @@ Dépôt Git : GitHub `gdailly/library`. Commit et push uniquement sur demande.
 2. Chaque appel API : `Authorization: Bearer <id token>`.
 3. Backend : validation signature (JWKS Google), `iss` = `accounts.google.com`, `aud` ∈ `GOOGLE_CLIENT_IDS`.
 4. L'e-mail doit être membre d'une bibliothèque, sinon 403. Le premier propriétaire vient de `BOOTSTRAP_OWNER_EMAIL`.
+5. Le compte `BOOTSTRAP_OWNER_EMAIL` est aussi l'**administrateur** de l'application (`MeResponse.admin`) : lui seul gère les métadonnées (page Administration).
 
 Bibliothèque **partagée** : les livres sont communs ; rôles OWNER (invite/retire) et MEMBER. Statut de lecture, note et avis sont **propres à chaque utilisateur**.
 
@@ -98,7 +99,7 @@ Normaliser l'ISBN en 13 chiffres (convertir les ISBN-10). Ne jamais appeler les 
 | POST | `/lookup/cover`, `/lookup/shelf` | Reconnaissance IA (lots 2-3, 503 si désactivée) |
 | CRUD | `/categories` | Catégories |
 | GET / POST / DELETE | `/library/members` | Membres (OWNER seulement pour écrire) |
-| GET / POST / DELETE | `/admin/metadata`, `/admin/metadata/sync`, `/admin/metadata/books/{id}/sync`, `/admin/metadata/cache` | Administration des métadonnées : resynchronisation, purge du cache ISBN (OWNER seulement) |
+| GET / POST / DELETE | `/admin/metadata`, `/admin/metadata/sync`, `/admin/metadata/books`, `/admin/metadata/books/{id}` (`/sync`, `/apply`), `/admin/metadata/cache` | Administration des métadonnées : comparaison des sources livre par livre, resynchronisation, purge du cache ISBN (administrateur seulement) |
 
 ## Reconnaissance IA (lots 2-3, désactivée par défaut)
 

@@ -9,11 +9,15 @@ import 'dart:convert';
 import 'package:library_api/src/deserialize.dart';
 import 'package:dio/dio.dart';
 
+import 'package:library_api/src/model/apply_metadata_request.dart';
+import 'package:library_api/src/model/book_metadata_response.dart';
 import 'package:library_api/src/model/book_sync_response.dart';
 import 'package:library_api/src/model/cache_clear_response.dart';
 import 'package:library_api/src/model/cache_scope.dart';
 import 'package:library_api/src/model/metadata_admin_response.dart';
+import 'package:library_api/src/model/metadata_source.dart';
 import 'package:library_api/src/model/metadata_sync_job_response.dart';
+import 'package:library_api/src/model/page_response_book_metadata_summary.dart';
 import 'package:library_api/src/model/sync_mode.dart';
 
 class AdminApi {
@@ -21,6 +25,105 @@ class AdminApi {
   final Dio _dio;
 
   const AdminApi(this._dio);
+
+  /// applyBookMetadata
+  /// 
+  ///
+  /// Parameters:
+  /// * [id] 
+  /// * [applyMetadataRequest] 
+  /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
+  /// * [headers] - Can be used to add additional headers to the request
+  /// * [extras] - Can be used to add flags to the request
+  /// * [validateStatus] - A [ValidateStatus] callback that can be used to determine request success based on the HTTP status of the response
+  /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
+  /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
+  ///
+  /// Returns a [Future] containing a [Response] with a [BookMetadataResponse] as data
+  /// Throws [DioException] if API call or serialization fails
+  Future<Response<BookMetadataResponse>> applyBookMetadata({ 
+    required int id,
+    required ApplyMetadataRequest applyMetadataRequest,
+    CancelToken? cancelToken,
+    Map<String, dynamic>? headers,
+    Map<String, dynamic>? extra,
+    ValidateStatus? validateStatus,
+    ProgressCallback? onSendProgress,
+    ProgressCallback? onReceiveProgress,
+  }) async {
+    final _path = r'/api/admin/metadata/books/{id}/apply'.replaceAll('{' r'id' '}', id.toString());
+    final _options = Options(
+      method: r'POST',
+      headers: <String, dynamic>{
+        ...?headers,
+      },
+      extra: <String, dynamic>{
+        'secure': <Map<String, String>>[
+          {
+            'type': 'http',
+            'scheme': 'bearer',
+            'name': 'googleIdToken',
+          },
+        ],
+        ...?extra,
+      },
+      contentType: 'application/json',
+      validateStatus: validateStatus,
+    );
+
+    dynamic _bodyData;
+
+    try {
+      _bodyData = jsonEncode(applyMetadataRequest);
+
+    } catch(error, stackTrace) {
+      throw DioException(
+         requestOptions: _options.compose(
+          _dio.options,
+          _path,
+        ),
+        type: DioExceptionType.unknown,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+
+    final _response = await _dio.request<Object>(
+      _path,
+      data: _bodyData,
+      options: _options,
+      cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
+    );
+
+    BookMetadataResponse? _responseData;
+
+    try {
+final rawData = _response.data;
+_responseData = rawData == null ? null : deserialize<BookMetadataResponse, BookMetadataResponse>(rawData, 'BookMetadataResponse', growable: true);
+
+    } catch (error, stackTrace) {
+      throw DioException(
+        requestOptions: _response.requestOptions,
+        response: _response,
+        type: DioExceptionType.unknown,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+
+    return Response<BookMetadataResponse>(
+      data: _responseData,
+      headers: _response.headers,
+      isRedirect: _response.isRedirect,
+      requestOptions: _response.requestOptions,
+      redirects: _response.redirects,
+      statusCode: _response.statusCode,
+      statusMessage: _response.statusMessage,
+      extra: _response.extra,
+    );
+  }
 
   /// clearIsbnCache
   /// 
@@ -94,6 +197,84 @@ _responseData = rawData == null ? null : deserialize<CacheClearResponse, CacheCl
     }
 
     return Response<CacheClearResponse>(
+      data: _responseData,
+      headers: _response.headers,
+      isRedirect: _response.isRedirect,
+      requestOptions: _response.requestOptions,
+      redirects: _response.redirects,
+      statusCode: _response.statusCode,
+      statusMessage: _response.statusMessage,
+      extra: _response.extra,
+    );
+  }
+
+  /// getBookMetadata
+  /// 
+  ///
+  /// Parameters:
+  /// * [id] 
+  /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
+  /// * [headers] - Can be used to add additional headers to the request
+  /// * [extras] - Can be used to add flags to the request
+  /// * [validateStatus] - A [ValidateStatus] callback that can be used to determine request success based on the HTTP status of the response
+  /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
+  /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
+  ///
+  /// Returns a [Future] containing a [Response] with a [BookMetadataResponse] as data
+  /// Throws [DioException] if API call or serialization fails
+  Future<Response<BookMetadataResponse>> getBookMetadata({ 
+    required int id,
+    CancelToken? cancelToken,
+    Map<String, dynamic>? headers,
+    Map<String, dynamic>? extra,
+    ValidateStatus? validateStatus,
+    ProgressCallback? onSendProgress,
+    ProgressCallback? onReceiveProgress,
+  }) async {
+    final _path = r'/api/admin/metadata/books/{id}'.replaceAll('{' r'id' '}', id.toString());
+    final _options = Options(
+      method: r'GET',
+      headers: <String, dynamic>{
+        ...?headers,
+      },
+      extra: <String, dynamic>{
+        'secure': <Map<String, String>>[
+          {
+            'type': 'http',
+            'scheme': 'bearer',
+            'name': 'googleIdToken',
+          },
+        ],
+        ...?extra,
+      },
+      validateStatus: validateStatus,
+    );
+
+    final _response = await _dio.request<Object>(
+      _path,
+      options: _options,
+      cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
+    );
+
+    BookMetadataResponse? _responseData;
+
+    try {
+final rawData = _response.data;
+_responseData = rawData == null ? null : deserialize<BookMetadataResponse, BookMetadataResponse>(rawData, 'BookMetadataResponse', growable: true);
+
+    } catch (error, stackTrace) {
+      throw DioException(
+        requestOptions: _response.requestOptions,
+        response: _response,
+        type: DioExceptionType.unknown,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+
+    return Response<BookMetadataResponse>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -257,10 +438,100 @@ _responseData = rawData == null ? null : deserialize<MetadataSyncJobResponse, Me
     );
   }
 
+  /// listBookMetadata
+  /// 
+  ///
+  /// Parameters:
+  /// * [q] 
+  /// * [onlyDifferences] 
+  /// * [page] 
+  /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
+  /// * [headers] - Can be used to add additional headers to the request
+  /// * [extras] - Can be used to add flags to the request
+  /// * [validateStatus] - A [ValidateStatus] callback that can be used to determine request success based on the HTTP status of the response
+  /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
+  /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
+  ///
+  /// Returns a [Future] containing a [Response] with a [PageResponseBookMetadataSummary] as data
+  /// Throws [DioException] if API call or serialization fails
+  Future<Response<PageResponseBookMetadataSummary>> listBookMetadata({ 
+    String? q,
+    bool? onlyDifferences = false,
+    int? page = 0,
+    CancelToken? cancelToken,
+    Map<String, dynamic>? headers,
+    Map<String, dynamic>? extra,
+    ValidateStatus? validateStatus,
+    ProgressCallback? onSendProgress,
+    ProgressCallback? onReceiveProgress,
+  }) async {
+    final _path = r'/api/admin/metadata/books';
+    final _options = Options(
+      method: r'GET',
+      headers: <String, dynamic>{
+        ...?headers,
+      },
+      extra: <String, dynamic>{
+        'secure': <Map<String, String>>[
+          {
+            'type': 'http',
+            'scheme': 'bearer',
+            'name': 'googleIdToken',
+          },
+        ],
+        ...?extra,
+      },
+      validateStatus: validateStatus,
+    );
+
+    final _queryParameters = <String, dynamic>{
+      if (q != null) r'q': q,
+      if (onlyDifferences != null) r'onlyDifferences': onlyDifferences,
+      if (page != null) r'page': page,
+    };
+
+    final _response = await _dio.request<Object>(
+      _path,
+      options: _options,
+      queryParameters: _queryParameters,
+      cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
+    );
+
+    PageResponseBookMetadataSummary? _responseData;
+
+    try {
+final rawData = _response.data;
+_responseData = rawData == null ? null : deserialize<PageResponseBookMetadataSummary, PageResponseBookMetadataSummary>(rawData, 'PageResponseBookMetadataSummary', growable: true);
+
+    } catch (error, stackTrace) {
+      throw DioException(
+        requestOptions: _response.requestOptions,
+        response: _response,
+        type: DioExceptionType.unknown,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+
+    return Response<PageResponseBookMetadataSummary>(
+      data: _responseData,
+      headers: _response.headers,
+      isRedirect: _response.isRedirect,
+      requestOptions: _response.requestOptions,
+      redirects: _response.redirects,
+      statusCode: _response.statusCode,
+      statusMessage: _response.statusMessage,
+      extra: _response.extra,
+    );
+  }
+
   /// startMetadataSync
   /// 
   ///
   /// Parameters:
+  /// * [mode] 
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -271,6 +542,7 @@ _responseData = rawData == null ? null : deserialize<MetadataSyncJobResponse, Me
   /// Returns a [Future] containing a [Response] with a [MetadataSyncJobResponse] as data
   /// Throws [DioException] if API call or serialization fails
   Future<Response<MetadataSyncJobResponse>> startMetadataSync({ 
+    SyncMode? mode,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -297,9 +569,14 @@ _responseData = rawData == null ? null : deserialize<MetadataSyncJobResponse, Me
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (mode != null) r'mode': mode,
+    };
+
     final _response = await _dio.request<Object>(
       _path,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -339,6 +616,7 @@ _responseData = rawData == null ? null : deserialize<MetadataSyncJobResponse, Me
   /// Parameters:
   /// * [id] 
   /// * [mode] 
+  /// * [source_] 
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -351,6 +629,7 @@ _responseData = rawData == null ? null : deserialize<MetadataSyncJobResponse, Me
   Future<Response<BookSyncResponse>> syncBookMetadata({ 
     required int id,
     SyncMode? mode,
+    MetadataSource? source_,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -379,6 +658,7 @@ _responseData = rawData == null ? null : deserialize<MetadataSyncJobResponse, Me
 
     final _queryParameters = <String, dynamic>{
       if (mode != null) r'mode': mode,
+      if (source_ != null) r'source': source_,
     };
 
     final _response = await _dio.request<Object>(

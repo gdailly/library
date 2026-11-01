@@ -49,13 +49,14 @@ import 'package:library_api/library_api.dart';
 
 
 final api = LibraryApi().getAdminApi();
-final CacheScope scope = ; // CacheScope | 
+final int id = 789; // int | 
+final ApplyMetadataRequest applyMetadataRequest = ; // ApplyMetadataRequest | 
 
 try {
-    final response = await api.clearIsbnCache(scope);
+    final response = await api.applyBookMetadata(id, applyMetadataRequest);
     print(response);
 } on DioException catch (e) {
-    print("Exception when calling AdminApi->clearIsbnCache: $e\n");
+    print("Exception when calling AdminApi->applyBookMetadata: $e\n");
 }
 
 ```
@@ -66,9 +67,12 @@ All URIs are relative to *http://localhost*
 
 Class | Method | HTTP request | Description
 ------------ | ------------- | ------------- | -------------
+[*AdminApi*](doc/AdminApi.md) | [**applyBookMetadata**](doc/AdminApi.md#applybookmetadata) | **POST** /api/admin/metadata/books/{id}/apply | 
 [*AdminApi*](doc/AdminApi.md) | [**clearIsbnCache**](doc/AdminApi.md#clearisbncache) | **DELETE** /api/admin/metadata/cache | 
+[*AdminApi*](doc/AdminApi.md) | [**getBookMetadata**](doc/AdminApi.md#getbookmetadata) | **GET** /api/admin/metadata/books/{id} | 
 [*AdminApi*](doc/AdminApi.md) | [**getMetadataAdmin**](doc/AdminApi.md#getmetadataadmin) | **GET** /api/admin/metadata | 
 [*AdminApi*](doc/AdminApi.md) | [**getMetadataSync**](doc/AdminApi.md#getmetadatasync) | **GET** /api/admin/metadata/sync | 
+[*AdminApi*](doc/AdminApi.md) | [**listBookMetadata**](doc/AdminApi.md#listbookmetadata) | **GET** /api/admin/metadata/books | 
 [*AdminApi*](doc/AdminApi.md) | [**startMetadataSync**](doc/AdminApi.md#startmetadatasync) | **POST** /api/admin/metadata/sync | 
 [*AdminApi*](doc/AdminApi.md) | [**syncBookMetadata**](doc/AdminApi.md#syncbookmetadata) | **POST** /api/admin/metadata/books/{id}/sync | 
 [*BooksApi*](doc/BooksApi.md) | [**createBook**](doc/BooksApi.md#createbook) | **POST** /api/books | 
@@ -93,6 +97,9 @@ Class | Method | HTTP request | Description
 
 ## Documentation For Models
 
+ - [ApplyMetadataRequest](doc/ApplyMetadataRequest.md)
+ - [BookMetadataResponse](doc/BookMetadataResponse.md)
+ - [BookMetadataSummary](doc/BookMetadataSummary.md)
  - [BookRequest](doc/BookRequest.md)
  - [BookResponse](doc/BookResponse.md)
  - [BookSyncResponse](doc/BookSyncResponse.md)
@@ -110,11 +117,13 @@ Class | Method | HTTP request | Description
  - [MetadataSource](doc/MetadataSource.md)
  - [MetadataSyncJobResponse](doc/MetadataSyncJobResponse.md)
  - [OtherReadingResponse](doc/OtherReadingResponse.md)
+ - [PageResponseBookMetadataSummary](doc/PageResponseBookMetadataSummary.md)
  - [PageResponseBookResponse](doc/PageResponseBookResponse.md)
  - [ReadingRequest](doc/ReadingRequest.md)
  - [ReadingResponse](doc/ReadingResponse.md)
  - [ReadingStatus](doc/ReadingStatus.md)
  - [Role](doc/Role.md)
+ - [SourceMetadataResponse](doc/SourceMetadataResponse.md)
  - [SyncMode](doc/SyncMode.md)
  - [SyncOutcome](doc/SyncOutcome.md)
  - [SyncState](doc/SyncState.md)

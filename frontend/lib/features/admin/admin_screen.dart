@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:library_api/library_api.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -15,7 +16,7 @@ final metadataAdminProvider = FutureProvider.autoDispose<MetadataAdminResponse>(
   return response.data!;
 });
 
-/// Administration (owners only): resynchronises the books with Open Library, Google Books and the BnF,
+/// Administration (the application's administrator only): resynchronises the books with Open Library, Google Books and the BnF,
 /// and empties the ISBN cache.
 class AdminScreen extends ConsumerStatefulWidget {
   const AdminScreen({super.key, this.pollInterval = const Duration(seconds: 2)});
@@ -85,8 +86,8 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
     }
   }
 
-  Future<void> _startSync() => _run(() async {
-        final job = (await _api.startMetadataSync()).data!;
+  Future<void> _startSync(SyncMode mode) => _run(() async {
+        final job = (await _api.startMetadataSync(mode: mode)).data!;
         _follow(job);
       });
 
@@ -166,24 +167,55 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
             ),
             const SizedBox(height: 16),
             _AdminCard(
+              title: 'Comparer livre par livre',
+              children: [
+                const Text(
+                  'Pour chaque livre, ce que disent la BnF, Open Library et Google Books à côté de ce qui est '
+                  'enregistré : reprends une valeur d\'une source, ou interroge à nouveau une source.',
+                  style: _body,
+                ),
+                const SizedBox(height: 16),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: FilledButton.tonalIcon(
+                    onPressed: () => context.push('/admin/books'),
+                    icon: const Icon(Icons.compare_arrows),
+                    label: const Text('Ouvrir la comparaison'),
+                    style: FilledButton.styleFrom(minimumSize: const Size(44, 48)),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            _AdminCard(
               title: 'Tout resynchroniser',
               children: [
                 const Text(
                   'Complète les champs vides et les couvertures manquantes de tous les livres qui ont un ISBN. '
                   'Ce qui est déjà renseigné n\'est jamais remplacé : pour corriger un livre précis, '
-                  'utilise « Resynchroniser » sur sa fiche.',
+                  'utilise la comparaison ou « Resynchroniser » sur sa fiche. « Récupérer seulement » met à jour '
+                  'les données des sources sans toucher aux livres, pour les comparer ensuite.',
                   style: _body,
                 ),
                 const SizedBox(height: 16),
                 if (job.state != SyncState.IDLE) ...[_SyncProgress(job: job), const SizedBox(height: 16)],
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: FilledButton.icon(
-                    onPressed: _busy || running || overview.booksWithIsbn == 0 ? null : _startSync,
-                    icon: const Icon(Icons.sync),
-                    label: Text(running ? 'Resynchronisation en cours…' : 'Lancer la resynchronisation'),
-                    style: FilledButton.styleFrom(minimumSize: const Size(44, 48)),
-                  ),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: [
+                    FilledButton.icon(
+                      onPressed: _busy || running || overview.booksWithIsbn == 0 ? null : () => _startSync(SyncMode.FILL),
+                      icon: const Icon(Icons.sync),
+                      label: Text(running ? 'Resynchronisation en cours…' : 'Lancer la resynchronisation'),
+                      style: FilledButton.styleFrom(minimumSize: const Size(44, 48)),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: _busy || running || overview.booksWithIsbn == 0 ? null : () => _startSync(SyncMode.FETCH),
+                      icon: const Icon(Icons.cloud_download_outlined),
+                      label: const Text('Récupérer seulement'),
+                      style: OutlinedButton.styleFrom(minimumSize: const Size(44, 48)),
+                    ),
+                  ],
                 ),
               ],
             ),

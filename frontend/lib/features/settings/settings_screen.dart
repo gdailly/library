@@ -37,7 +37,7 @@ class SettingsScreen extends ConsumerWidget {
         trailing: _Badge('Désactivée'),
       ),
     );
-    final admin = role == Role.OWNER
+    final admin = auth.me.admin
         ? _Card(
             child: ListTile(
               leading: const Icon(Icons.sync, color: AppColors.accent),
