@@ -27,6 +27,20 @@ public final class Isbn {
         return Optional.empty();
     }
 
+    /** ISBN-10 form of a 978 ISBN-13, which older catalogue records still use; empty otherwise. */
+    public static Optional<String> toIsbn10(String isbn13) {
+        if (isbn13 == null || !isbn13.matches("978\\d{10}")) {
+            return Optional.empty();
+        }
+        String body = isbn13.substring(3, 12);
+        int sum = 0;
+        for (int i = 0; i < 9; i++) {
+            sum += (body.charAt(i) - '0') * (10 - i);
+        }
+        int check = (11 - sum % 11) % 11;
+        return Optional.of(body + (check == 10 ? "X" : String.valueOf(check)));
+    }
+
     private static char checkDigit13(String twelveDigits) {
         int sum = 0;
         for (int i = 0; i < 12; i++) {

@@ -21,6 +21,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.util.unit.DataSize;
 import org.springframework.web.client.RestClientException;
 
+import com.gdailly.library.client.BnfClient;
 import com.gdailly.library.client.BookMetadata;
 import com.gdailly.library.client.CoverDownloader;
 import com.gdailly.library.client.GoogleBooksClient;
@@ -41,6 +42,8 @@ import com.gdailly.library.security.CoverUrlSigner;
 import com.gdailly.library.security.CurrentUser;
 import com.gdailly.library.storage.CoverStore;
 
+import tools.jackson.databind.json.JsonMapper;
+
 class CoverServiceTest {
 
     private static final CurrentUser USER = new CurrentUser(7L, "alice@example.com", 1L, Role.MEMBER);
@@ -58,8 +61,9 @@ class CoverServiceTest {
             new LivreProperties.Covers(null, "unit-test-secret-0123", null, DataSize.ofBytes(10), null));
     private final CoverUrlSigner signer =
             new CoverUrlSigner(properties, Clock.fixed(Instant.parse("2026-10-06T08:00:00Z"), ZoneOffset.UTC));
-    private final CoverService service = new CoverService(books, isbnCache, store, signer, downloader, openLibrary,
-            googleBooks, properties);
+    private final MetadataSources sources = new MetadataSources(openLibrary, googleBooks, mock(BnfClient.class),
+            JsonMapper.builder().build());
+    private final CoverService service = new CoverService(books, isbnCache, store, signer, downloader, sources, properties);
 
     @Test
     void reusesCoverAlreadyDownloadedForTheIsbn() {
@@ -112,6 +116,21 @@ class CoverServiceTest {
 
         assertThat(service.importFromIsbn(ISBN)).isEmpty();
         verify(isbnCache, never()).save(any());
+    }
+
+    @Test
+    void triesTheNextCoverWhenTheBestOneFails() {
+        IsbnLookup entry = new IsbnLookup(ISBN, LookupSource.OPEN_LIBRARY,
+                "{\"sources\":{\"OPEN_LIBRARY\":\"ol\",\"GOOGLE_BOOKS\":\"gb\"}}", Instant.now());
+        when(isbnCache.findById(ISBN)).thenReturn(Optional.of(entry));
+        when(googleBooks.parse(ISBN, "gb")).thenReturn(Optional.of(metadataWithCover("https://google/1.jpg")));
+        when(openLibrary.parse(ISBN, "ol")).thenReturn(Optional.of(metadataWithCover(IMAGE_URL)));
+        when(downloader.download("https://google/1.jpg")).thenThrow(new RestClientException("timeout"));
+        when(downloader.download(IMAGE_URL)).thenReturn(Optional.of(new byte[] {1, 2, 3}));
+        when(store.store(any())).thenReturn(KEY);
+
+        assertThat(service.importFromIsbn(ISBN)).contains(KEY);
+        verify(isbnCache).save(entry);
     }
 
     @Test

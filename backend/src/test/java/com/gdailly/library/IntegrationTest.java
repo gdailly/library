@@ -48,6 +48,8 @@ public abstract class IntegrationTest {
     static void externalApis(DynamicPropertyRegistry registry) {
         registry.add("livre.isbn.open-library-url", METADATA::url);
         registry.add("livre.isbn.google-books-url", METADATA::url);
+        registry.add("livre.isbn.bnf-url", METADATA::url);
+        registry.add("livre.isbn.sync-pause", () -> "0s");
         registry.add("livre.covers.directory", () -> COVERS_DIRECTORY.toString());
     }
 

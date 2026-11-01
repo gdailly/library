@@ -3,15 +3,14 @@ package com.gdailly.library.business;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.EnumMap;
+import java.util.Map;
 import java.util.Optional;
+import java.util.function.Predicate;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import com.gdailly.library.client.GoogleBooksClient;
-import com.gdailly.library.client.MetadataClient;
-import com.gdailly.library.client.OpenLibraryClient;
+import com.gdailly.library.client.BookMetadata;
 import com.gdailly.library.config.LivreProperties;
 import com.gdailly.library.dto.IsbnLookupResponse;
 import com.gdailly.library.dto.MetadataSource;
@@ -27,29 +26,25 @@ import com.gdailly.library.security.CurrentUser;
 import com.gdailly.library.util.Isbn;
 
 /**
- * Finds metadata for an ISBN: the library itself, then the {@code isbn_lookup} cache, then Open Library,
- * then Google Books. External APIs are never called while the cache entry is valid.
- * No transaction spans the HTTP calls.
+ * Finds metadata for an ISBN: the library itself, then the {@code isbn_lookup} cache, then all the external sources
+ * (Open Library, Google Books, BnF) whose answers are merged field by field. External APIs are never called while
+ * the cache entry is valid. No transaction spans the HTTP calls.
  */
 @Service
 public class IsbnLookupService {
 
-    private static final Logger log = LoggerFactory.getLogger(IsbnLookupService.class);
-
     private final BookRepository books;
     private final IsbnLookupRepository cache;
-    private final OpenLibraryClient openLibrary;
-    private final GoogleBooksClient googleBooks;
+    private final MetadataSources sources;
     private final LivreProperties.Isbn settings;
     private final Clock clock;
     private final IsbnLookupMapper isbnLookupMapper;
 
-    IsbnLookupService(BookRepository books, IsbnLookupRepository cache, OpenLibraryClient openLibrary,
-            GoogleBooksClient googleBooks, LivreProperties properties, Clock clock, IsbnLookupMapper isbnLookupMapper) {
+    IsbnLookupService(BookRepository books, IsbnLookupRepository cache, MetadataSources sources,
+            LivreProperties properties, Clock clock, IsbnLookupMapper isbnLookupMapper) {
         this.books = books;
         this.cache = cache;
-        this.openLibrary = openLibrary;
-        this.googleBooks = googleBooks;
+        this.sources = sources;
         this.settings = properties.isbn();
         this.clock = clock;
         this.isbnLookupMapper = isbnLookupMapper;
@@ -62,56 +57,52 @@ public class IsbnLookupService {
         if (existing.isPresent()) {
             return isbnLookupMapper.fromBook(existing.get());
         }
+        MetadataMerger.Merged merged = resolve(isbn13, this::isFresh).orElseThrow(NotFoundException::new);
+        return isbnLookupMapper.fromMetadata(isbn13, MetadataSource.valueOf(merged.source().name()), merged.metadata());
+    }
 
-        Optional<IsbnLookup> entry = cache.findById(isbn13).filter(this::isFresh);
+    /**
+     * Metadata for a resynchronisation: the cache is used only when it was filled less than {@code maxAge} ago,
+     * so that a resynchronisation queries the sources again but a second run the same day does not.
+     * Empty when no source knows the ISBN; throws {@link ServiceUnavailableException} when a source could not answer.
+     */
+    Optional<MetadataMerger.Merged> refresh(String isbn13, Duration maxAge) {
+        Instant since = Instant.now(clock).minus(maxAge);
+        return resolve(isbn13, entry -> entry.getFetchedAt().isAfter(since));
+    }
+
+    private Optional<MetadataMerger.Merged> resolve(String isbn13, Predicate<IsbnLookup> usable) {
+        Optional<IsbnLookup> entry = cache.findById(isbn13).filter(usable);
         if (entry.isPresent()) {
             if (entry.get().getSource() == LookupSource.NOT_FOUND) {
-                throw new NotFoundException();
+                return Optional.empty();
             }
-            Optional<IsbnLookupResponse> cached = fromCache(entry.get());
+            Optional<MetadataMerger.Merged> cached = MetadataMerger.merge(sources.decode(entry.get()));
             if (cached.isPresent()) {
-                return cached.get();
+                return cached;
             }
+            // Unreadable payload: the APIs are queried again.
         }
 
-        boolean failed = false;
-        for (Source source : new Source[] {
-                new Source(openLibrary, LookupSource.OPEN_LIBRARY, MetadataSource.OPEN_LIBRARY),
-                new Source(googleBooks, LookupSource.GOOGLE_BOOKS, MetadataSource.GOOGLE_BOOKS)}) {
-            try {
-                Optional<String> payload = source.client().fetch(isbn13);
-                if (payload.isPresent()) {
-                    cache.save(new IsbnLookup(isbn13, source.cached(), payload.get(), Instant.now(clock)));
-                    return isbnLookupMapper.fromMetadata(isbn13, source.reported(),
-                            source.client().parse(isbn13, payload.get()).orElseThrow());
-                }
-            } catch (RuntimeException e) {
-                failed = true;
-                log.warn("ISBN lookup of {} on {} failed: {}", isbn13, source.cached(), e.toString());
-            }
+        MetadataSources.Answers answers = sources.fetchAll(isbn13);
+        Map<LookupSource, BookMetadata> parsed = sources.parse(isbn13, answers.payloads());
+        Optional<MetadataMerger.Merged> merged = MetadataMerger.merge(parsed);
+        if (merged.isPresent()) {
+            Map<LookupSource, String> known = new EnumMap<>(answers.payloads());
+            known.keySet().retainAll(parsed.keySet());
+            cache.save(new IsbnLookup(isbn13, merged.get().source(), sources.encode(known), Instant.now(clock)));
+            return merged;
         }
-        if (failed) {
+        if (answers.incomplete()) {
             // Do not remember "not found" when a source could not answer.
             throw new ServiceUnavailableException("Recherche ISBN momentanément indisponible, réessayez ou saisissez le livre.");
         }
         cache.save(new IsbnLookup(isbn13, LookupSource.NOT_FOUND, null, Instant.now(clock)));
-        throw new NotFoundException();
+        return Optional.empty();
     }
 
     private boolean isFresh(IsbnLookup entry) {
         Duration ttl = entry.getSource() == LookupSource.NOT_FOUND ? settings.notFoundTtl() : settings.foundTtl();
         return entry.getFetchedAt().plus(ttl).isAfter(Instant.now(clock));
-    }
-
-    /** Empty when the cached payload can no longer be read: the APIs are then queried again. */
-    private Optional<IsbnLookupResponse> fromCache(IsbnLookup entry) {
-        String isbn13 = entry.getIsbn13();
-        boolean google = entry.getSource() == LookupSource.GOOGLE_BOOKS;
-        MetadataClient client = google ? googleBooks : openLibrary;
-        MetadataSource source = google ? MetadataSource.GOOGLE_BOOKS : MetadataSource.OPEN_LIBRARY;
-        return client.parse(isbn13, entry.getPayload()).map(m -> isbnLookupMapper.fromMetadata(isbn13, source, m));
-    }
-
-    private record Source(MetadataClient client, LookupSource cached, MetadataSource reported) {
     }
 }

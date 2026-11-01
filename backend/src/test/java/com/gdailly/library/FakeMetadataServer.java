@@ -13,7 +13,7 @@ import java.util.regex.Pattern;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 
-/** Stands in for Open Library and Google Books; answers are programmed per ISBN, calls are counted. */
+/** Stands in for Open Library, Google Books and the BnF catalogue; answers are programmed per ISBN, calls are counted. */
 public final class FakeMetadataServer {
 
     public static final FakeMetadataServer INSTANCE = new FakeMetadataServer();
@@ -23,6 +23,7 @@ public final class FakeMetadataServer {
     private final HttpServer server;
     private final Map<String, String> openLibrary = new ConcurrentHashMap<>();
     private final Map<String, String> googleBooks = new ConcurrentHashMap<>();
+    private final Map<String, String> bnf = new ConcurrentHashMap<>();
     private final Map<String, byte[]> images = new ConcurrentHashMap<>();
     private final Map<String, AtomicInteger> calls = new ConcurrentHashMap<>();
     private volatile boolean googleBooksDown;
@@ -35,6 +36,7 @@ public final class FakeMetadataServer {
         }
         server.createContext("/api/books", exchange -> answer(exchange, openLibrary, "{}", false));
         server.createContext("/books/v1/volumes", exchange -> answer(exchange, googleBooks, "{\"totalItems\": 0}", googleBooksDown));
+        server.createContext("/api/SRU", exchange -> answer(exchange, bnf, sru(""), false));
         server.createContext("/images/", this::image);
         server.start();
     }
@@ -71,11 +73,22 @@ public final class FakeMetadataServer {
         googleBooks.put(isbn13, "{\"totalItems\": 1, \"items\": [{\"volumeInfo\": " + volumeInfoJson + "}]}");
     }
 
+    /** {@code datafields}: UNIMARC fields in MARCXchange, e.g. {@code <mxc:datafield tag="200">...}. */
+    public void bnfKnows(String isbn13, String datafields) {
+        bnf.put(isbn13, sru("<srw:record><srw:recordData><mxc:record xmlns:mxc=\"info:lc/xmlns/marcxchange-v2\">"
+                + datafields + "</mxc:record></srw:recordData></srw:record>"));
+    }
+
+    private static String sru(String records) {
+        return "<srw:searchRetrieveResponse xmlns:srw=\"http://www.loc.gov/zing/srw/\"><srw:records>" + records
+                + "</srw:records></srw:searchRetrieveResponse>";
+    }
+
     public void googleBooksDown(boolean down) {
         googleBooksDown = down;
     }
 
-    /** Number of requests, both APIs together, that mentioned this ISBN (or downloads of this image name). */
+    /** Number of requests, all APIs together, that mentioned this ISBN (or downloads of this image name). */
     public int calls(String isbn13) {
         return calls.getOrDefault(isbn13, new AtomicInteger()).get();
     }
@@ -85,7 +98,7 @@ public final class FakeMetadataServer {
         String isbn = matcher.find() ? matcher.group(1) : "";
         calls.computeIfAbsent(isbn, k -> new AtomicInteger()).incrementAndGet();
         byte[] body = (down ? "{}" : known.getOrDefault(isbn, empty)).getBytes(StandardCharsets.UTF_8);
-        exchange.getResponseHeaders().add("Content-Type", "application/json");
+        exchange.getResponseHeaders().add("Content-Type", body.length > 0 && body[0] == '<' ? "text/xml" : "application/json");
         exchange.sendResponseHeaders(down ? 500 : 200, body.length);
         exchange.getResponseBody().write(body);
         exchange.close();

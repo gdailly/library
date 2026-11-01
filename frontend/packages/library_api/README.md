@@ -48,14 +48,14 @@ Please follow the [installation procedure](#installation--usage) and then run th
 import 'package:library_api/library_api.dart';
 
 
-final api = LibraryApi().getBooksApi();
-final BookRequest bookRequest = ; // BookRequest | 
+final api = LibraryApi().getAdminApi();
+final CacheScope scope = ; // CacheScope | 
 
 try {
-    final response = await api.createBook(bookRequest);
+    final response = await api.clearIsbnCache(scope);
     print(response);
 } on DioException catch (e) {
-    print("Exception when calling BooksApi->createBook: $e\n");
+    print("Exception when calling AdminApi->clearIsbnCache: $e\n");
 }
 
 ```
@@ -66,6 +66,11 @@ All URIs are relative to *http://localhost*
 
 Class | Method | HTTP request | Description
 ------------ | ------------- | ------------- | -------------
+[*AdminApi*](doc/AdminApi.md) | [**clearIsbnCache**](doc/AdminApi.md#clearisbncache) | **DELETE** /api/admin/metadata/cache | 
+[*AdminApi*](doc/AdminApi.md) | [**getMetadataAdmin**](doc/AdminApi.md#getmetadataadmin) | **GET** /api/admin/metadata | 
+[*AdminApi*](doc/AdminApi.md) | [**getMetadataSync**](doc/AdminApi.md#getmetadatasync) | **GET** /api/admin/metadata/sync | 
+[*AdminApi*](doc/AdminApi.md) | [**startMetadataSync**](doc/AdminApi.md#startmetadatasync) | **POST** /api/admin/metadata/sync | 
+[*AdminApi*](doc/AdminApi.md) | [**syncBookMetadata**](doc/AdminApi.md#syncbookmetadata) | **POST** /api/admin/metadata/books/{id}/sync | 
 [*BooksApi*](doc/BooksApi.md) | [**createBook**](doc/BooksApi.md#createbook) | **POST** /api/books | 
 [*BooksApi*](doc/BooksApi.md) | [**deleteBook**](doc/BooksApi.md#deletebook) | **DELETE** /api/books/{id} | 
 [*BooksApi*](doc/BooksApi.md) | [**deleteCover**](doc/BooksApi.md#deletecover) | **DELETE** /api/books/{id}/cover | 
@@ -90,6 +95,9 @@ Class | Method | HTTP request | Description
 
  - [BookRequest](doc/BookRequest.md)
  - [BookResponse](doc/BookResponse.md)
+ - [BookSyncResponse](doc/BookSyncResponse.md)
+ - [CacheClearResponse](doc/CacheClearResponse.md)
+ - [CacheScope](doc/CacheScope.md)
  - [CategoryRequest](doc/CategoryRequest.md)
  - [CategoryResponse](doc/CategoryResponse.md)
  - [CoverResponse](doc/CoverResponse.md)
@@ -98,13 +106,18 @@ Class | Method | HTTP request | Description
  - [MeResponse](doc/MeResponse.md)
  - [MemberRequest](doc/MemberRequest.md)
  - [MemberResponse](doc/MemberResponse.md)
+ - [MetadataAdminResponse](doc/MetadataAdminResponse.md)
  - [MetadataSource](doc/MetadataSource.md)
+ - [MetadataSyncJobResponse](doc/MetadataSyncJobResponse.md)
  - [OtherReadingResponse](doc/OtherReadingResponse.md)
  - [PageResponseBookResponse](doc/PageResponseBookResponse.md)
  - [ReadingRequest](doc/ReadingRequest.md)
  - [ReadingResponse](doc/ReadingResponse.md)
  - [ReadingStatus](doc/ReadingStatus.md)
  - [Role](doc/Role.md)
+ - [SyncMode](doc/SyncMode.md)
+ - [SyncOutcome](doc/SyncOutcome.md)
+ - [SyncState](doc/SyncState.md)
 
 
 ## Documentation For Authorization

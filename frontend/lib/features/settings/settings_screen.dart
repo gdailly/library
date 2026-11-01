@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:library_api/library_api.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -36,6 +37,17 @@ class SettingsScreen extends ConsumerWidget {
         trailing: _Badge('Désactivée'),
       ),
     );
+    final admin = role == Role.OWNER
+        ? _Card(
+            child: ListTile(
+              leading: const Icon(Icons.sync, color: AppColors.accent),
+              title: const Text('Administration'),
+              subtitle: const Text('Resynchroniser les livres avec la BnF, Open Library et Google Books'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.push('/admin'),
+            ),
+          )
+        : null;
     return ListView(
       padding: EdgeInsets.fromLTRB(16, 24, 16, wide ? 32 : 104),
       children: [
@@ -52,7 +64,16 @@ class SettingsScreen extends ConsumerWidget {
             children: [
               const Expanded(child: categories),
               const SizedBox(width: 24),
-              Expanded(child: Column(children: [members, const SizedBox(height: 24), recognition])),
+              Expanded(
+                child: Column(
+                  children: [
+                    members,
+                    const SizedBox(height: 24),
+                    recognition,
+                    if (admin != null) ...[const SizedBox(height: 24), admin],
+                  ],
+                ),
+              ),
             ],
           )
         else ...[
@@ -63,6 +84,7 @@ class SettingsScreen extends ConsumerWidget {
           members,
           const SizedBox(height: 24),
           recognition,
+          if (admin != null) ...[const SizedBox(height: 24), admin],
           const SizedBox(height: 24),
           signOut,
         ],

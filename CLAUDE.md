@@ -28,7 +28,7 @@ Package Java racine : `com.gdailly.library`. Code rangé par couche, un package 
 | `mapper` | Conversion entité ↔ DTO avec MapStruct (interfaces, beans Spring, champ non mappé = erreur de build) |
 | `exception` | Exceptions métier (400, 403, 404, 409, 503) |
 | `security` | Utilisateur courant, filtre d'appartenance, signature HMAC des URL de couvertures |
-| `client` | Appels HTTP sortants (Open Library, Google Books, téléchargement des couvertures) |
+| `client` | Appels HTTP sortants (Open Library, Google Books, BnF, téléchargement des couvertures) |
 | `storage` | Fichiers de couvertures sur le volume `covers` (original JPEG, vignettes WebP) |
 | `config` | Configuration Spring, propriétés `livre.*` |
 | `util` | Utilitaires sans état (ISBN…) |
@@ -71,11 +71,11 @@ Bibliothèque **partagée** : les livres sont communs ; rôles OWNER (invite/ret
 | `category` | id, library_id, name, color |
 | `book_category` | book_id, category_id |
 | `reading` | book_id, user_id, status (TO_READ, READING, READ, ABANDONED), rating (1-5, null), review, started_on, finished_on — unique (book_id, user_id) |
-| `isbn_lookup` | isbn13 (PK), source (OPEN_LIBRARY, GOOGLE_BOOKS, NOT_FOUND), payload (JSON), cover_key, fetched_at |
+| `isbn_lookup` | isbn13 (PK), source (OPEN_LIBRARY, GOOGLE_BOOKS, BNF, NOT_FOUND), payload (JSON, réponse brute de chaque source), cover_key, fetched_at |
 
 ## Recherche ISBN (cache obligatoire)
 
-Ordre : livre déjà présent dans la bibliothèque → `isbn_lookup` (valide 180 jours ; 7 jours si NOT_FOUND) → Open Library → Google Books.
+Ordre : livre déjà présent dans la bibliothèque → `isbn_lookup` (valide 180 jours ; 7 jours si NOT_FOUND) → Open Library, Google Books et BnF interrogés ensemble, réponses fusionnées champ par champ (ordre de préférence par champ dans `decisions.md`).
 Normaliser l'ISBN en 13 chiffres (convertir les ISBN-10). Ne jamais appeler les API externes si le cache est valide.
 
 ## Couvertures et vignettes
@@ -98,6 +98,7 @@ Normaliser l'ISBN en 13 chiffres (convertir les ISBN-10). Ne jamais appeler les 
 | POST | `/lookup/cover`, `/lookup/shelf` | Reconnaissance IA (lots 2-3, 503 si désactivée) |
 | CRUD | `/categories` | Catégories |
 | GET / POST / DELETE | `/library/members` | Membres (OWNER seulement pour écrire) |
+| GET / POST / DELETE | `/admin/metadata`, `/admin/metadata/sync`, `/admin/metadata/books/{id}/sync`, `/admin/metadata/cache` | Administration des métadonnées : resynchronisation, purge du cache ISBN (OWNER seulement) |
 
 ## Reconnaissance IA (lots 2-3, désactivée par défaut)
 

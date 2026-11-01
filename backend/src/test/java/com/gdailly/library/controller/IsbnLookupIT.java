@@ -76,7 +76,7 @@ class IsbnLookupIT extends IntegrationTest {
         String isbn = "9780000000026";
         mvc.perform(get("/api/lookup/isbn/{isbn}", isbn).with(owner())).andExpect(status().isNotFound());
         int calls = METADATA.calls(isbn);
-        assertThat(calls).isEqualTo(2);
+        assertThat(calls).isEqualTo(3);
 
         mvc.perform(get("/api/lookup/isbn/{isbn}", isbn).with(owner())).andExpect(status().isNotFound());
         assertThat(METADATA.calls(isbn)).isEqualTo(calls);
@@ -117,6 +117,31 @@ class IsbnLookupIT extends IntegrationTest {
         mvc.perform(get("/api/lookup/isbn/{isbn}", isbn).with(owner()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.source").value("OPEN_LIBRARY"));
+    }
+
+    @Test
+    void mergesTheBnfCatalogueWithTheOtherSources() throws Exception {
+        String isbn = "9780000090010";
+        METADATA.bnfKnows(isbn, """
+                <mxc:datafield tag="101"><mxc:subfield code="a">fre</mxc:subfield></mxc:datafield>
+                <mxc:datafield tag="200"><mxc:subfield code="a">L'Étranger</mxc:subfield></mxc:datafield>
+                <mxc:datafield tag="210"><mxc:subfield code="c">Gallimard</mxc:subfield><mxc:subfield code="d">DL 1971</mxc:subfield></mxc:datafield>
+                <mxc:datafield tag="215"><mxc:subfield code="a">1 vol. (191 p.)</mxc:subfield></mxc:datafield>
+                <mxc:datafield tag="700"><mxc:subfield code="a">Camus</mxc:subfield><mxc:subfield code="b">Albert</mxc:subfield><mxc:subfield code="4">070</mxc:subfield></mxc:datafield>
+                """);
+        METADATA.googleBooksKnows(isbn, "{\"title\": \"The Stranger\", \"description\": \"Aujourd'hui, maman est morte.\"}");
+
+        mvc.perform(get("/api/lookup/isbn/{isbn}", isbn).with(owner()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.source").value("BNF"))
+                .andExpect(jsonPath("$.title").value("L'Étranger"))
+                .andExpect(jsonPath("$.authors").value("Albert Camus"))
+                .andExpect(jsonPath("$.publisher").value("Gallimard"))
+                .andExpect(jsonPath("$.year").value(1971))
+                .andExpect(jsonPath("$.pages").value(191))
+                .andExpect(jsonPath("$.language").value("fr"))
+                .andExpect(jsonPath("$.summary").value("Aujourd'hui, maman est morte."));
+        assertThat(cache.findById(isbn)).get().extracting(IsbnLookup::getSource).isEqualTo(LookupSource.BNF);
     }
 
     @Test

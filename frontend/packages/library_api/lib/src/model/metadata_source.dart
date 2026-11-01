@@ -11,7 +11,9 @@ enum MetadataSource {
   @JsonValue(r'OPEN_LIBRARY')
   OPEN_LIBRARY(r'OPEN_LIBRARY'),
   @JsonValue(r'GOOGLE_BOOKS')
-  GOOGLE_BOOKS(r'GOOGLE_BOOKS');
+  GOOGLE_BOOKS(r'GOOGLE_BOOKS'),
+  @JsonValue(r'BNF')
+  BNF(r'BNF');
 
   const MetadataSource(this.value);
 

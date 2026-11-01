@@ -1,6 +1,7 @@
 package com.gdailly.library.business;
 
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Optional;
 
 import org.slf4j.Logger;
@@ -8,16 +9,12 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.gdailly.library.client.BookMetadata;
 import com.gdailly.library.client.CoverDownloader;
-import com.gdailly.library.client.GoogleBooksClient;
-import com.gdailly.library.client.OpenLibraryClient;
 import com.gdailly.library.config.LivreProperties;
 import com.gdailly.library.dto.CoverResponse;
 import com.gdailly.library.dto.CoverSize;
 import com.gdailly.library.entity.Book;
 import com.gdailly.library.entity.IsbnLookup;
-import com.gdailly.library.entity.LookupSource;
 import com.gdailly.library.exception.BadRequestException;
 import com.gdailly.library.exception.ForbiddenException;
 import com.gdailly.library.exception.NotFoundException;
@@ -38,20 +35,17 @@ public class CoverService {
     private final CoverStore store;
     private final CoverUrlSigner signer;
     private final CoverDownloader downloader;
-    private final OpenLibraryClient openLibrary;
-    private final GoogleBooksClient googleBooks;
+    private final MetadataSources sources;
     private final long maxBytes;
 
     CoverService(BookRepository books, IsbnLookupRepository isbnCache, CoverStore store, CoverUrlSigner signer,
-            CoverDownloader downloader, OpenLibraryClient openLibrary, GoogleBooksClient googleBooks,
-            LivreProperties properties) {
+            CoverDownloader downloader, MetadataSources sources, LivreProperties properties) {
         this.books = books;
         this.isbnCache = isbnCache;
         this.store = store;
         this.signer = signer;
         this.downloader = downloader;
-        this.openLibrary = openLibrary;
-        this.googleBooks = googleBooks;
+        this.sources = sources;
         this.maxBytes = properties.covers().maxSize().toBytes();
     }
 
@@ -99,36 +93,35 @@ public class CoverService {
     }
 
     /**
-     * Cover of a cached ISBN lookup, downloaded on first use and shared afterwards.
-     * Empty when the ISBN was never looked up, has no cover, or the download fails: a book is never refused for that.
+     * Cover of a cached ISBN lookup, downloaded on first use and shared afterwards. The images offered by the sources
+     * are tried best first, so that a slow or broken one does not leave the book without a cover.
+     * Empty when the ISBN was never looked up, has no cover, or every download fails: a book is never refused for that.
      */
     public Optional<String> importFromIsbn(String isbn13) {
         Optional<IsbnLookup> entry = isbnCache.findById(isbn13);
-        if (entry.isEmpty() || entry.get().getSource() == LookupSource.NOT_FOUND) {
+        if (entry.isEmpty()) {
             return Optional.empty();
         }
         IsbnLookup lookup = entry.get();
         if (lookup.getCoverKey() != null) {
             return Optional.of(lookup.getCoverKey());
         }
-        Optional<BookMetadata> metadata = lookup.getSource() == LookupSource.GOOGLE_BOOKS
-                ? googleBooks.parse(isbn13, lookup.getPayload())
-                : openLibrary.parse(isbn13, lookup.getPayload());
-        String coverUrl = metadata.map(BookMetadata::coverUrl).orElse(null);
-        if (coverUrl == null) {
-            return Optional.empty();
+        List<String> coverUrls = MetadataMerger.merge(sources.decode(lookup))
+                .map(MetadataMerger.Merged::coverUrls)
+                .orElse(List.of());
+        for (String coverUrl : coverUrls) {
+            try {
+                Optional<String> key = downloader.download(coverUrl).map(store::store);
+                if (key.isPresent()) {
+                    lookup.setCoverKey(key.get());
+                    isbnCache.save(lookup);
+                    return key;
+                }
+            } catch (RuntimeException e) {
+                log.warn("Cover download for ISBN {} from {} failed: {}", isbn13, coverUrl, e.toString());
+            }
         }
-        try {
-            Optional<String> key = downloader.download(coverUrl).map(store::store);
-            key.ifPresent(k -> {
-                lookup.setCoverKey(k);
-                isbnCache.save(lookup);
-            });
-            return key;
-        } catch (RuntimeException e) {
-            log.warn("Cover download for ISBN {} failed: {}", isbn13, e.toString());
-            return Optional.empty();
-        }
+        return Optional.empty();
     }
 
     private static String url(Book book, CoverSize size, CoverUrlSigner.SignedCover signed) {
