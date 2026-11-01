@@ -47,7 +47,8 @@ public class GoogleBooksClient implements MetadataClient {
         if (payload == null || payload.isBlank()) {
             return Optional.empty();
         }
-        JsonNode info = json.readTree(payload).path("items").path(0).path("volumeInfo");
+        JsonNode items = json.readTree(payload).path("items");
+        JsonNode info = items.path(0).path("volumeInfo");
         String title = BookMetadata.text(info.path("title").asString(null));
         if (title == null) {
             return Optional.empty();
@@ -65,15 +66,21 @@ public class GoogleBooksClient implements MetadataClient {
                 BookMetadata.positive(info.path("pageCount").asInt(0)),
                 BookMetadata.text(info.path("language").asString(null)),
                 BookMetadata.text(info.path("description").asString(null)),
-                coverUrl(info.path("imageLinks"))));
+                coverUrl(items)));
     }
 
-    /** Largest image offered, over HTTPS and without the page-curl effect. */
-    private static String coverUrl(JsonNode links) {
-        for (String size : new String[] {"extraLarge", "large", "medium", "small", "thumbnail", "smallThumbnail"}) {
-            String url = BookMetadata.text(links.path(size).asString(null));
-            if (url != null) {
-                return url.replaceFirst("^http://", "https://").replace("&edge=curl", "");
+    /**
+     * Largest image of the first volume that has one (other editions of the same ISBN often carry the image),
+     * over HTTPS and without the page-curl effect.
+     */
+    private static String coverUrl(JsonNode items) {
+        for (JsonNode item : items) {
+            JsonNode links = item.path("volumeInfo").path("imageLinks");
+            for (String size : new String[] {"extraLarge", "large", "medium", "small", "thumbnail", "smallThumbnail"}) {
+                String url = BookMetadata.text(links.path(size).asString(null));
+                if (url != null) {
+                    return url.replaceFirst("^http://", "https://").replace("&edge=curl", "");
+                }
             }
         }
         return null;

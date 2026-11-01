@@ -25,7 +25,7 @@ class CoverStoreTest {
 
     private CoverStore store() {
         return new CoverStore(new LivreProperties(null, null, null, null,
-                new LivreProperties.Covers(directory, "unused-secret-0123", null, null)));
+                new LivreProperties.Covers(directory, "unused-secret-0123", null, null, null)));
     }
 
     @Test

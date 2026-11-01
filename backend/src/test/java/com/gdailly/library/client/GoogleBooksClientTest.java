@@ -52,6 +52,18 @@ class GoogleBooksClientTest {
     }
 
     @Test
+    void takesCoverFromAnotherVolumeWhenFirstHasNone() {
+        BookMetadata book = client.parse("9782014001334", """
+                {"totalItems": 2, "items": [
+                  {"volumeInfo": {"title": "Astérix 40 - L'Iris Blanc"}},
+                  {"volumeInfo": {"title": "L'Iris Blanc", "imageLinks": {"thumbnail": "http://books.google.com/b?id=h"}}}]}
+                """).orElseThrow();
+
+        assertThat(book.title()).isEqualTo("Astérix 40 - L'Iris Blanc");
+        assertThat(book.coverUrl()).isEqualTo("https://books.google.com/b?id=h");
+    }
+
+    @Test
     void readsNoMatchAsEmpty() {
         assertThat(client.parse("9780000000002", "{\"kind\": \"books#volumes\", \"totalItems\": 0}")).isEmpty();
         assertThat(client.parse("9780000000002", "{\"items\": [{\"volumeInfo\": {\"title\": \"  \"}}]}")).isEmpty();

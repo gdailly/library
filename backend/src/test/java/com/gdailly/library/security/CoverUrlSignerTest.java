@@ -66,7 +66,7 @@ class CoverUrlSignerTest {
 
     private static CoverUrlSigner signer(String secret, Instant now) {
         LivreProperties properties = new LivreProperties(null, null, null, null,
-                new LivreProperties.Covers(null, secret, null, null));
+                new LivreProperties.Covers(null, secret, null, null, null));
         return new CoverUrlSigner(properties, Clock.fixed(now, ZoneOffset.UTC));
     }
 }
