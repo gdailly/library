@@ -38,6 +38,6 @@ public class UserService {
                 .map(m -> new MeResponse.LibrarySummary(m.getLibraryId(),
                         libraries.findById(m.getLibraryId()).map(Library::getName).orElse(null), m.getRole()))
                 .toList();
-        return userMapper.toMeResponse(user, memberships);
+        return userMapper.toMeResponse(user, memberships, currentUser.admin());
     }
 }

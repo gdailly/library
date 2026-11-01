@@ -6,6 +6,7 @@ import org.mapstruct.Mapping;
 import com.gdailly.library.client.BookMetadata;
 import com.gdailly.library.dto.IsbnLookupResponse;
 import com.gdailly.library.dto.MetadataSource;
+import com.gdailly.library.dto.SourceMetadataResponse;
 import com.gdailly.library.entity.Book;
 
 @Mapper(config = MappingConfig.class)
@@ -21,4 +22,8 @@ public interface IsbnLookupMapper {
     @Mapping(target = "source", source = "source")
     @Mapping(target = "existingBookId", ignore = true)
     IsbnLookupResponse fromMetadata(String isbn13, MetadataSource source, BookMetadata metadata);
+
+    /** {@code source} null for the merged answer. */
+    @Mapping(target = "source", source = "source")
+    SourceMetadataResponse toSourceMetadata(MetadataSource source, BookMetadata metadata);
 }

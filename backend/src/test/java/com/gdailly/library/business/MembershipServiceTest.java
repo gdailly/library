@@ -11,6 +11,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import com.gdailly.library.config.LivreProperties;
 import com.gdailly.library.entity.AppUser;
 import com.gdailly.library.entity.LibraryMember;
 import com.gdailly.library.entity.Role;
@@ -20,9 +21,12 @@ import com.gdailly.library.security.CurrentUser;
 
 class MembershipServiceTest {
 
+    private static final LivreProperties PROPERTIES =
+            new LivreProperties(null, new LivreProperties.Bootstrap("Admin@Example.com", null), null, null, null);
+
     private final AppUserRepository users = mock(AppUserRepository.class);
     private final LibraryMemberRepository members = mock(LibraryMemberRepository.class);
-    private final MembershipService service = new MembershipService(users, members);
+    private final MembershipService service = new MembershipService(users, members, PROPERTIES);
 
     @Test
     void resolvesFirstLibraryOfInvitedAccountAndRefreshesProfile() {
@@ -40,6 +44,16 @@ class MembershipServiceTest {
     }
 
     @Test
+    void recognisesTheAdministratorByTheBootstrapEmail() {
+        AppUser user = new AppUser("admin@example.com");
+        ReflectionTestUtils.setField(user, "id", 1L);
+        when(users.findByEmailIgnoreCase("admin@example.com")).thenReturn(Optional.of(user));
+        when(members.findByUserIdOrderByLibraryId(1L)).thenReturn(List.of(new LibraryMember(3L, 1L, Role.OWNER)));
+
+        assertThat(service.resolve("admin@example.com", null, null)).get().extracting(CurrentUser::admin).isEqualTo(true);
+    }
+
+    @Test
     void refusesAccountWithoutLibrary() {
         AppUser user = new AppUser("former@example.com");
         ReflectionTestUtils.setField(user, "id", 9L);
@@ -54,7 +68,7 @@ class MembershipServiceTest {
         when(users.findByEmailIgnoreCase("stranger@example.com")).thenReturn(Optional.empty());
         assertThat(service.resolve("stranger@example.com", null, null)).isEmpty();
 
-        MembershipService fresh = new MembershipService(mock(AppUserRepository.class), members);
+        MembershipService fresh = new MembershipService(mock(AppUserRepository.class), members, PROPERTIES);
         assertThat(fresh.resolve(null, null, null)).isEmpty();
         assertThat(fresh.resolve(" ", null, null)).isEmpty();
         verifyNoInteractions(members);

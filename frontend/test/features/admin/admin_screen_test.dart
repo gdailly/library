@@ -51,7 +51,7 @@ void main() {
   });
 
   testWidgets('starts the full resynchronisation and follows it to the end', (tester) async {
-    when(() => api.admin.startMetadataSync()).thenAnswer((_) async => ok(job(SyncState.RUNNING, total: 110)));
+    when(() => api.admin.startMetadataSync(mode: SyncMode.FILL)).thenAnswer((_) async => ok(job(SyncState.RUNNING, total: 110)));
     var polls = 0;
     when(() => api.admin.getMetadataSync()).thenAnswer((_) async {
       polls++;

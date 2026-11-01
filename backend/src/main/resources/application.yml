@@ -21,6 +21,14 @@ spring:
 server:
   error:
     include-message: never
+  # Behind Caddy: the scheme and host of the browser come from X-Forwarded-Proto/Host, so that the app's own
+  # origin (https://…) is recognised and its requests are not rejected as cross-origin ("Invalid CORS request").
+  forward-headers-strategy: framework
+
+logging:
+  level:
+    # Hibernate logs the JDBC connection settings at startup.
+    org.hibernate.orm.connections.pooling: warn
 
 management:
   endpoints:

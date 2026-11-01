@@ -124,6 +124,16 @@ public class CoverService {
         return Optional.empty();
     }
 
+    /** A cover downloaded from one source's image; empty when the download fails or is not an image. */
+    public Optional<String> importFromUrl(String coverUrl) {
+        try {
+            return downloader.download(coverUrl).map(store::store);
+        } catch (RuntimeException e) {
+            log.warn("Cover download from {} failed: {}", coverUrl, e.toString());
+            return Optional.empty();
+        }
+    }
+
     private static String url(Book book, CoverSize size, CoverUrlSigner.SignedCover signed) {
         return "/api/books/" + book.getId() + "/cover?size=" + size.queryValue() + "&key=" + book.getCoverKey()
                 + "&expires=" + signed.expires() + "&sig=" + signed.signature();

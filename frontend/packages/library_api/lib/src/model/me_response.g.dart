@@ -17,6 +17,8 @@ abstract class _$MeResponseCWProxy {
 
   MeResponse libraries(List<LibrarySummary> libraries);
 
+  MeResponse admin(bool admin);
+
   /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `MeResponse(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
   ///
   /// Usage
@@ -29,6 +31,7 @@ abstract class _$MeResponseCWProxy {
     String? name,
     String? avatarUrl,
     List<LibrarySummary> libraries,
+    bool admin,
   });
 }
 
@@ -55,6 +58,9 @@ class _$MeResponseCWProxyImpl implements _$MeResponseCWProxy {
       this(libraries: libraries);
 
   @override
+  MeResponse admin(bool admin) => this(admin: admin);
+
+  @override
   /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `MeResponse(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
   ///
   /// Usage
@@ -67,6 +73,7 @@ class _$MeResponseCWProxyImpl implements _$MeResponseCWProxy {
     Object? name = const $CopyWithPlaceholder(),
     Object? avatarUrl = const $CopyWithPlaceholder(),
     Object? libraries = const $CopyWithPlaceholder(),
+    Object? admin = const $CopyWithPlaceholder(),
   }) {
     return MeResponse(
       id: id == const $CopyWithPlaceholder()
@@ -89,6 +96,10 @@ class _$MeResponseCWProxyImpl implements _$MeResponseCWProxy {
           ? _value.libraries
           // ignore: cast_nullable_to_non_nullable
           : libraries as List<LibrarySummary>,
+      admin: admin == const $CopyWithPlaceholder()
+          ? _value.admin
+          // ignore: cast_nullable_to_non_nullable
+          : admin as bool,
     );
   }
 }
@@ -103,23 +114,27 @@ extension $MeResponseCopyWith on MeResponse {
 // JsonSerializableGenerator
 // **************************************************************************
 
-MeResponse _$MeResponseFromJson(Map<String, dynamic> json) =>
-    $checkedCreate('MeResponse', json, ($checkedConvert) {
-      $checkKeys(json, requiredKeys: const ['id', 'email', 'libraries']);
-      final val = MeResponse(
-        id: $checkedConvert('id', (v) => (v as num).toInt()),
-        email: $checkedConvert('email', (v) => v as String),
-        name: $checkedConvert('name', (v) => v as String?),
-        avatarUrl: $checkedConvert('avatarUrl', (v) => v as String?),
-        libraries: $checkedConvert(
-          'libraries',
-          (v) => (v as List<dynamic>)
-              .map((e) => LibrarySummary.fromJson(e as Map<String, dynamic>))
-              .toList(),
-        ),
-      );
-      return val;
-    });
+MeResponse _$MeResponseFromJson(Map<String, dynamic> json) => $checkedCreate(
+  'MeResponse',
+  json,
+  ($checkedConvert) {
+    $checkKeys(json, requiredKeys: const ['id', 'email', 'libraries', 'admin']);
+    final val = MeResponse(
+      id: $checkedConvert('id', (v) => (v as num).toInt()),
+      email: $checkedConvert('email', (v) => v as String),
+      name: $checkedConvert('name', (v) => v as String?),
+      avatarUrl: $checkedConvert('avatarUrl', (v) => v as String?),
+      libraries: $checkedConvert(
+        'libraries',
+        (v) => (v as List<dynamic>)
+            .map((e) => LibrarySummary.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      ),
+      admin: $checkedConvert('admin', (v) => v as bool),
+    );
+    return val;
+  },
+);
 
 Map<String, dynamic> _$MeResponseToJson(MeResponse instance) =>
     <String, dynamic>{
@@ -128,4 +143,5 @@ Map<String, dynamic> _$MeResponseToJson(MeResponse instance) =>
       'name': ?instance.name,
       'avatarUrl': ?instance.avatarUrl,
       'libraries': instance.libraries.map((e) => e.toJson()).toList(),
+      'admin': instance.admin,
     };

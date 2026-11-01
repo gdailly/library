@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:library_api/library_api.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -25,30 +26,44 @@ String syncSummary(BookSyncResponse result) => switch (result.outcome) {
       SyncOutcome.UPDATED => 'Mis à jour : ${result.changedFields.map((f) => syncFieldLabels[f] ?? f).join(', ')}.',
     };
 
-/// Asks how to resynchronise a book (owners only), runs it and reports the result in a snack bar.
+/// Asks how to resynchronise a book (administrator only), runs it and reports the result in a snack bar.
 Future<void> showBookSyncDialog(BuildContext context, WidgetRef ref, BookResponse book) async {
-  final mode = await showDialog<SyncMode>(
+  const compare = 'compare';
+  final choice = await showDialog<Object>(
     context: context,
     builder: (context) => SimpleDialog(
       title: Text('Resynchroniser « ${book.title} »'),
       children: [
-        _ModeOption(
-          mode: SyncMode.FILL,
+        const _Option(
+          value: SyncMode.FILL,
           title: 'Compléter les champs vides',
           subtitle: 'Garde tout ce qui est déjà renseigné.',
         ),
-        _ModeOption(
-          mode: SyncMode.REPLACE,
+        const _Option(
+          value: SyncMode.REPLACE,
           title: 'Tout remplacer par les sources',
           subtitle: 'Titre, auteurs, résumé, couverture… remplacés par ce que trouvent la BnF, '
               'Open Library et Google Books. Les catégories et les avis ne changent pas.',
         ),
+        const _Option(
+          value: compare,
+          title: 'Comparer les sources…',
+          subtitle: 'Voir ce que dit chaque source et choisir champ par champ.',
+        ),
       ],
     ),
   );
-  if (mode == null || !context.mounted) {
+  if (choice == null || !context.mounted) {
     return;
   }
+  if (choice == compare) {
+    await context.push('/admin/books/${book.id}');
+    ref
+      ..invalidate(bookProvider(book.id))
+      ..invalidate(booksProvider);
+    return;
+  }
+  final mode = choice as SyncMode;
   final messenger = ScaffoldMessenger.of(context);
   messenger.showSnackBar(const SnackBar(content: Text('Resynchronisation…')));
   try {
@@ -69,17 +84,17 @@ Future<void> showBookSyncDialog(BuildContext context, WidgetRef ref, BookRespons
   }
 }
 
-class _ModeOption extends StatelessWidget {
-  const _ModeOption({required this.mode, required this.title, required this.subtitle});
+class _Option extends StatelessWidget {
+  const _Option({required this.value, required this.title, required this.subtitle});
 
-  final SyncMode mode;
+  final Object value;
   final String title;
   final String subtitle;
 
   @override
   Widget build(BuildContext context) {
     return SimpleDialogOption(
-      onPressed: () => Navigator.of(context).pop(mode),
+      onPressed: () => Navigator.of(context).pop(value),
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

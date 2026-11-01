@@ -3,6 +3,7 @@ package com.gdailly.library.repository;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
@@ -24,4 +25,6 @@ public interface BookRepository extends JpaRepository<Book, Long>, JpaSpecificat
     List<Long> findIdsWithIsbn(Long libraryId);
 
     long countByLibraryId(Long libraryId);
+
+    List<Book> findByLibraryIdAndIsbn13IsNotNull(Long libraryId, Sort sort);
 }

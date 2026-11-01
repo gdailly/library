@@ -30,6 +30,8 @@ class MeResponse {
      this.avatarUrl,
 
     required  this.libraries,
+
+    required  this.admin,
   });
 
   @JsonKey(
@@ -92,6 +94,18 @@ class MeResponse {
 
 
 
+  @JsonKey(
+    
+    name: r'admin',
+    required: true,
+    includeIfNull: false,
+  )
+
+
+  final bool admin;
+
+
+
 
 
     @override
@@ -100,7 +114,8 @@ class MeResponse {
       other.email == email &&
       other.name == name &&
       other.avatarUrl == avatarUrl &&
-      other.libraries == libraries;
+      other.libraries == libraries &&
+      other.admin == admin;
 
     @override
     int get hashCode =>
@@ -108,7 +123,8 @@ class MeResponse {
         email.hashCode +
         name.hashCode +
         avatarUrl.hashCode +
-        libraries.hashCode;
+        libraries.hashCode +
+        admin.hashCode;
 
   factory MeResponse.fromJson(Map<String, dynamic> json) => _$MeResponseFromJson(json);
 

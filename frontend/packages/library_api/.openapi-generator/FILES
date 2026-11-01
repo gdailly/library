@@ -17,6 +17,9 @@ lib/src/auth/basic_auth.dart
 lib/src/auth/bearer_auth.dart
 lib/src/auth/oauth.dart
 lib/src/deserialize.dart
+lib/src/model/apply_metadata_request.dart
+lib/src/model/book_metadata_response.dart
+lib/src/model/book_metadata_summary.dart
 lib/src/model/book_request.dart
 lib/src/model/book_response.dart
 lib/src/model/book_sync_response.dart
@@ -34,11 +37,13 @@ lib/src/model/metadata_admin_response.dart
 lib/src/model/metadata_source.dart
 lib/src/model/metadata_sync_job_response.dart
 lib/src/model/other_reading_response.dart
+lib/src/model/page_response_book_metadata_summary.dart
 lib/src/model/page_response_book_response.dart
 lib/src/model/reading_request.dart
 lib/src/model/reading_response.dart
 lib/src/model/reading_status.dart
 lib/src/model/role.dart
+lib/src/model/source_metadata_response.dart
 lib/src/model/sync_mode.dart
 lib/src/model/sync_outcome.dart
 lib/src/model/sync_state.dart
