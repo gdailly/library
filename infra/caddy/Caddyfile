@@ -1,6 +1,14 @@
 # SITE_ADDRESS (infra/.env):
 #   - a domain name, e.g. livre.duckdns.org: HTTPS with a Let's Encrypt certificate, obtained and renewed automatically;
 #   - ":80": plain HTTP on the server's IP address, without certificate.
+{
+	servers {
+		# Behind another proxy (e.g. a shared Caddy terminating HTTPS), keep the X-Forwarded-Proto/Host it sends:
+		# the backend needs the browser's scheme to recognise the app's own origin.
+		trusted_proxies static private_ranges
+	}
+}
+
 {$SITE_ADDRESS} {
 	encode zstd gzip
 
