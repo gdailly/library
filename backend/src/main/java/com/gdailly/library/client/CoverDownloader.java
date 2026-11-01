@@ -19,7 +19,7 @@ public class CoverDownloader {
     private final long maxBytes;
 
     CoverDownloader(LivreProperties properties) {
-        this.http = HttpClients.restClient(null, properties.isbn().timeout());
+        this.http = HttpClients.restClient(null, properties.covers().downloadTimeout());
         this.maxBytes = properties.covers().maxSize().toBytes();
     }
 

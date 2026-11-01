@@ -15,7 +15,7 @@ public record LivreProperties(Auth auth, Bootstrap bootstrap, Cors cors, Isbn is
         bootstrap = bootstrap != null ? bootstrap : new Bootstrap(null, null);
         cors = cors != null ? cors : new Cors(List.of());
         isbn = isbn != null ? isbn : new Isbn(null, null, null, null, null, null);
-        covers = covers != null ? covers : new Covers(null, null, null, null);
+        covers = covers != null ? covers : new Covers(null, null, null, null, null);
     }
 
     /**
@@ -25,12 +25,15 @@ public record LivreProperties(Auth auth, Bootstrap bootstrap, Cors cors, Isbn is
      * @param urlSecret  HMAC key of the cover URLs; required
      * @param urlTtl     how long a signed URL stays valid at least
      * @param maxSize    largest image accepted, uploaded or downloaded
+     * @param downloadTimeout  connect and read timeout of a cover download (Open Library covers are served by
+     *                         archive.org, which often takes several seconds)
      */
-    public record Covers(Path directory, String urlSecret, Duration urlTtl, DataSize maxSize) {
+    public record Covers(Path directory, String urlSecret, Duration urlTtl, DataSize maxSize, Duration downloadTimeout) {
         public Covers {
             directory = directory != null ? directory : Path.of("covers");
             urlTtl = urlTtl != null ? urlTtl : Duration.ofHours(24);
             maxSize = maxSize != null ? maxSize : DataSize.ofMegabytes(5);
+            downloadTimeout = downloadTimeout != null ? downloadTimeout : Duration.ofSeconds(30);
         }
     }
 

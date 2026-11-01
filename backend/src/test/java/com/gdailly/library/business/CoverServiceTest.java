@@ -55,7 +55,7 @@ class CoverServiceTest {
     private final OpenLibraryClient openLibrary = mock(OpenLibraryClient.class);
     private final GoogleBooksClient googleBooks = mock(GoogleBooksClient.class);
     private final LivreProperties properties = new LivreProperties(null, null, null, null,
-            new LivreProperties.Covers(null, "unit-test-secret-0123", null, DataSize.ofBytes(10)));
+            new LivreProperties.Covers(null, "unit-test-secret-0123", null, DataSize.ofBytes(10), null));
     private final CoverUrlSigner signer =
             new CoverUrlSigner(properties, Clock.fixed(Instant.parse("2026-10-06T08:00:00Z"), ZoneOffset.UTC));
     private final CoverService service = new CoverService(books, isbnCache, store, signer, downloader, openLibrary,
