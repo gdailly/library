@@ -104,6 +104,13 @@ void main() {
 
     expect(find.text('Inviter'), findsNothing);
     expect(find.byTooltip('Retirer claire@example.com'), findsNothing);
+    expect(find.text('Administration'), findsNothing);
+  });
+
+  testWidgets('offers the administration page to owners', (tester) async {
+    await pumpSettings(tester, Role.OWNER);
+
+    expect(find.text('Administration'), findsOneWidget);
   });
 
   testWidgets('creates a category', (tester) async {

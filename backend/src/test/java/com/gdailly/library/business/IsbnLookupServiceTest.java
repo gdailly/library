@@ -22,6 +22,7 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.client.RestClientException;
 
+import com.gdailly.library.client.BnfClient;
 import com.gdailly.library.client.BookMetadata;
 import com.gdailly.library.client.GoogleBooksClient;
 import com.gdailly.library.client.OpenLibraryClient;
@@ -40,6 +41,8 @@ import com.gdailly.library.repository.BookRepository;
 import com.gdailly.library.repository.IsbnLookupRepository;
 import com.gdailly.library.security.CurrentUser;
 
+import tools.jackson.databind.json.JsonMapper;
+
 class IsbnLookupServiceTest {
 
     private static final CurrentUser USER = new CurrentUser(7L, "alice@example.com", 1L, Role.MEMBER);
@@ -52,7 +55,10 @@ class IsbnLookupServiceTest {
     private final IsbnLookupRepository cache = mock(IsbnLookupRepository.class);
     private final OpenLibraryClient openLibrary = mock(OpenLibraryClient.class);
     private final GoogleBooksClient googleBooks = mock(GoogleBooksClient.class);
-    private final IsbnLookupService service = new IsbnLookupService(books, cache, openLibrary, googleBooks,
+    private final BnfClient bnf = mock(BnfClient.class);
+    private final JsonMapper json = JsonMapper.builder().build();
+    private final MetadataSources sources = new MetadataSources(openLibrary, googleBooks, bnf, json);
+    private final IsbnLookupService service = new IsbnLookupService(books, cache, sources,
             new LivreProperties(null, null, null, null, null), Clock.fixed(NOW, ZoneOffset.UTC), new IsbnLookupMapperImpl());
 
     @BeforeEach
@@ -61,6 +67,7 @@ class IsbnLookupServiceTest {
         when(cache.findById(ISBN)).thenReturn(Optional.empty());
         when(openLibrary.fetch(ISBN)).thenReturn(Optional.empty());
         when(googleBooks.fetch(ISBN)).thenReturn(Optional.empty());
+        when(bnf.fetch(ISBN)).thenReturn(Optional.empty());
         when(openLibrary.parse(ISBN, "ol")).thenReturn(Optional.of(PETIT_PRINCE));
         when(googleBooks.parse(ISBN, "gb")).thenReturn(Optional.of(PETIT_PRINCE));
     }
@@ -68,7 +75,7 @@ class IsbnLookupServiceTest {
     @Test
     void refusesInvalidIsbn() {
         assertThatThrownBy(() -> service.lookup(USER, "9782070612759")).isInstanceOf(BadRequestException.class);
-        verifyNoInteractions(books, cache, openLibrary, googleBooks);
+        verifyNoInteractions(books, cache, openLibrary, googleBooks, bnf);
     }
 
     @Test
@@ -89,7 +96,7 @@ class IsbnLookupServiceTest {
 
         assertThat(response.source()).isEqualTo(MetadataSource.LIBRARY);
         assertThat(response.existingBookId()).isEqualTo(42L);
-        verifyNoInteractions(cache, openLibrary, googleBooks);
+        verifyNoInteractions(cache, openLibrary, googleBooks, bnf);
     }
 
     @Test
@@ -139,30 +146,69 @@ class IsbnLookupServiceTest {
     }
 
     @Test
-    void prefersOpenLibraryAndCachesItsAnswer() {
+    void queriesEverySourceAndCachesTheirAnswersTogether() {
         when(openLibrary.fetch(ISBN)).thenReturn(Optional.of("ol"));
+        when(googleBooks.fetch(ISBN)).thenReturn(Optional.of("gb"));
 
         IsbnLookupResponse response = service.lookup(USER, ISBN);
 
         assertThat(response.source()).isEqualTo(MetadataSource.OPEN_LIBRARY);
         assertThat(response.existingBookId()).isNull();
-        verify(googleBooks, never()).fetch(anyString());
+        verify(bnf).fetch(ISBN);
         IsbnLookup saved = savedEntry();
         assertThat(saved.getSource()).isEqualTo(LookupSource.OPEN_LIBRARY);
-        assertThat(saved.getPayload()).isEqualTo("ol");
+        assertThat(saved.getPayload()).isEqualTo("{\"sources\":{\"OPEN_LIBRARY\":\"ol\",\"GOOGLE_BOOKS\":\"gb\"}}");
         assertThat(saved.getFetchedAt()).isEqualTo(NOW);
     }
 
     @Test
-    void fallsBackToGoogleBooks() {
-        when(googleBooks.fetch(ISBN)).thenReturn(Optional.of("gb"));
+    void mergesFieldsFromSeveralSources() {
+        when(openLibrary.fetch(ISBN)).thenReturn(Optional.of("ol"));
+        when(googleBooks.fetch(ISBN)).thenReturn(Optional.of("gb-rich"));
+        when(bnf.fetch(ISBN)).thenReturn(Optional.of("bnf"));
+        when(googleBooks.parse(ISBN, "gb-rich")).thenReturn(Optional.of(new BookMetadata("The Little Prince", null,
+                "A. de Saint-Exupéry", null, 2000, 93, "fr", "Un pilote...", "https://books.google/cover")));
+        when(bnf.parse(ISBN, "bnf")).thenReturn(Optional.of(new BookMetadata("Le petit prince", null,
+                "Antoine de Saint-Exupéry", "Gallimard", 1999, null, "fr", null, null)));
 
-        assertThat(service.lookup(USER, ISBN).source()).isEqualTo(MetadataSource.GOOGLE_BOOKS);
-        assertThat(savedEntry().getSource()).isEqualTo(LookupSource.GOOGLE_BOOKS);
+        IsbnLookupResponse response = service.lookup(USER, ISBN);
+
+        assertThat(response.source()).isEqualTo(MetadataSource.BNF);
+        assertThat(response.title()).isEqualTo("Le petit prince");
+        assertThat(response.publisher()).isEqualTo("Gallimard");
+        assertThat(response.year()).isEqualTo(1999);
+        assertThat(response.pages()).isEqualTo(96); // Open Library
+        assertThat(response.summary()).isEqualTo("Un pilote..."); // Google Books
+        assertThat(response.coverUrl()).isEqualTo("https://books.google/cover");
     }
 
     @Test
-    void cachesNotFoundWhenBothSourcesAnswerNo() {
+    void readsMultiSourceCacheEntries() {
+        cached(LookupSource.BNF, "{\"sources\":{\"OPEN_LIBRARY\":\"ol\"}}", Duration.ofDays(3));
+
+        assertThat(service.lookup(USER, ISBN).title()).isEqualTo("Le Petit Prince");
+        verify(openLibrary, never()).fetch(anyString());
+    }
+
+    @Test
+    void refreshIgnoresCacheOlderThanTheGivenAge() {
+        cached(LookupSource.OPEN_LIBRARY, "ol", Duration.ofDays(2));
+        when(googleBooks.fetch(ISBN)).thenReturn(Optional.of("gb"));
+
+        assertThat(service.refresh(ISBN, Duration.ofDays(1))).isPresent();
+        verify(googleBooks).fetch(ISBN);
+    }
+
+    @Test
+    void refreshReusesRecentAnswers() {
+        cached(LookupSource.OPEN_LIBRARY, "ol", Duration.ofHours(2));
+
+        assertThat(service.refresh(ISBN, Duration.ofDays(1))).isPresent();
+        verify(openLibrary, never()).fetch(anyString());
+    }
+
+    @Test
+    void cachesNotFoundWhenNoSourceKnowsTheIsbn() {
         assertThatThrownBy(() -> service.lookup(USER, ISBN)).isInstanceOf(NotFoundException.class);
 
         IsbnLookup saved = savedEntry();

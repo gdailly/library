@@ -227,4 +227,5 @@ const _$MetadataSourceEnumMap = {
   MetadataSource.LIBRARY: 'LIBRARY',
   MetadataSource.OPEN_LIBRARY: 'OPEN_LIBRARY',
   MetadataSource.GOOGLE_BOOKS: 'GOOGLE_BOOKS',
+  MetadataSource.BNF: 'BNF',
 };

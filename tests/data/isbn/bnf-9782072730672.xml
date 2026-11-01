@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<srw:searchRetrieveResponse xmlns:srw="http://www.loc.gov/zing/srw/" xmlns="http://catalogue.bnf.fr/namespaces/InterXMarc">
+  <srw:version>1.2</srw:version>
+  <srw:numberOfRecords>1</srw:numberOfRecords>
+  <srw:records>
+    <srw:record>
+      <srw:recordSchema>unimarcxchange</srw:recordSchema>
+      <srw:recordPacking>xml</srw:recordPacking>
+      <srw:recordData>
+        <mxc:record xmlns:mxc="info:lc/xmlns/marcxchange-v2" format="UNIMARC" id="ark:/12148/cb45343233r" type="Bibliographic">
+          <mxc:datafield tag="010" ind1=" " ind2=" ">
+            <mxc:subfield code="a">978-2-07-273067-2</mxc:subfield>
+            <mxc:subfield code="b">br.</mxc:subfield>
+            <mxc:subfield code="d">13,90 EUR</mxc:subfield>
+          </mxc:datafield>
+          <mxc:datafield tag="200" ind1="1" ind2=" ">
+            <mxc:subfield code="a">Les misérables</mxc:subfield>
+            <mxc:subfield code="b">Texte imprimé</mxc:subfield>
+            <mxc:subfield code="f">Victor Hugo</mxc:subfield>
+            <mxc:subfield code="g">édition présentée, établie et annotée par Yves Gohin</mxc:subfield>
+          </mxc:datafield>
+          <mxc:datafield tag="210" ind1=" " ind2=" ">
+            <mxc:subfield code="a">[Paris]</mxc:subfield>
+            <mxc:subfield code="c">Gallimard</mxc:subfield>
+            <mxc:subfield code="d">DL 2017</mxc:subfield>
+            <mxc:subfield code="e">impr. en Espagne</mxc:subfield>
+          </mxc:datafield>
+          <mxc:datafield tag="215" ind1=" " ind2=" ">
+            <mxc:subfield code="a">1 vol. (1339 p.)</mxc:subfield>
+            <mxc:subfield code="d">18 cm</mxc:subfield>
+          </mxc:datafield>
+          <mxc:datafield tag="700" ind1=" " ind2="|">
+            <mxc:subfield code="3">11907966</mxc:subfield>
+            <mxc:subfield code="o">ISNI0000000121200982</mxc:subfield>
+            <mxc:subfield code="a">Hugo</mxc:subfield>
+            <mxc:subfield code="b">Victor</mxc:subfield>
+            <mxc:subfield code="f">1802-1885</mxc:subfield>
+            <mxc:subfield code="4">070</mxc:subfield>
+          </mxc:datafield>
+          <mxc:datafield tag="702" ind1=" " ind2="|">
+            <mxc:subfield code="a">Gohin</mxc:subfield>
+            <mxc:subfield code="b">Yves</mxc:subfield>
+            <mxc:subfield code="4">340</mxc:subfield>
+          </mxc:datafield>
+        </mxc:record>
+      </srw:recordData>
+    </srw:record>
+  </srw:records>
+</srw:searchRetrieveResponse>

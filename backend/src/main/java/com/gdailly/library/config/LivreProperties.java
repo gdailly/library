@@ -14,7 +14,7 @@ public record LivreProperties(Auth auth, Bootstrap bootstrap, Cors cors, Isbn is
         auth = auth != null ? auth : new Auth(List.of());
         bootstrap = bootstrap != null ? bootstrap : new Bootstrap(null, null);
         cors = cors != null ? cors : new Cors(List.of());
-        isbn = isbn != null ? isbn : new Isbn(null, null, null, null, null, null);
+        isbn = isbn != null ? isbn : new Isbn(null, null, null, null, null, null, null, null);
         covers = covers != null ? covers : new Covers(null, null, null, null, null);
     }
 
@@ -54,20 +54,25 @@ public record LivreProperties(Auth auth, Bootstrap bootstrap, Cors cors, Isbn is
         }
     }
 
-    /** ISBN metadata APIs and how long their answers are cached. */
+    /** ISBN metadata APIs (Open Library, Google Books, BnF catalogue) and how long their answers are cached. */
     public record Isbn(
             String openLibraryUrl,
             String googleBooksUrl,
+            String bnfUrl,
             String googleBooksApiKey,
             Duration timeout,
             Duration foundTtl,
-            Duration notFoundTtl) {
+            Duration notFoundTtl,
+            Duration syncPause) {
         public Isbn {
             openLibraryUrl = openLibraryUrl != null ? openLibraryUrl : "https://openlibrary.org";
             googleBooksUrl = googleBooksUrl != null ? googleBooksUrl : "https://www.googleapis.com";
+            bnfUrl = bnfUrl != null ? bnfUrl : "https://catalogue.bnf.fr";
             timeout = timeout != null ? timeout : Duration.ofSeconds(5);
             foundTtl = foundTtl != null ? foundTtl : Duration.ofDays(180);
             notFoundTtl = notFoundTtl != null ? notFoundTtl : Duration.ofDays(7);
+            // Between two books of a full resynchronisation, to stay well within the free quotas of the APIs.
+            syncPause = syncPause != null ? syncPause : Duration.ofMillis(500);
         }
     }
 

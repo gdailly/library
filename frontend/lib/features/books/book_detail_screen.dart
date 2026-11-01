@@ -5,6 +5,8 @@ import 'package:material_ui/material_ui.dart';
 import '../../core/api.dart';
 import '../../core/theme.dart';
 import '../../shared/message_box.dart';
+import '../admin/book_sync_dialog.dart';
+import '../auth/auth_controller.dart';
 import 'book_actions.dart';
 import 'book_cover.dart';
 import 'books_providers.dart';
@@ -20,10 +22,18 @@ class BookDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final book = ref.watch(bookProvider(bookId));
+    final auth = ref.watch(authControllerProvider);
+    final isOwner = auth is AuthSignedIn && auth.me.libraries.firstOrNull?.role == Role.OWNER;
     return Scaffold(
       appBar: AppBar(
         actions: [
           if (book.value case final loaded?) ...[
+            if (isOwner && loaded.isbn13 != null)
+              IconButton(
+                tooltip: 'Resynchroniser',
+                icon: const Icon(Icons.sync),
+                onPressed: () => showBookSyncDialog(context, ref, loaded),
+              ),
             IconButton(
               tooltip: 'Modifier',
               icon: const Icon(Icons.edit_outlined),

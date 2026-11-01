@@ -5,6 +5,7 @@ analysis_options.yaml
 build.yaml
 lib/library_api.dart
 lib/src/api.dart
+lib/src/api/admin_api.dart
 lib/src/api/books_api.dart
 lib/src/api/categories_api.dart
 lib/src/api/lookup_api.dart
@@ -18,6 +19,9 @@ lib/src/auth/oauth.dart
 lib/src/deserialize.dart
 lib/src/model/book_request.dart
 lib/src/model/book_response.dart
+lib/src/model/book_sync_response.dart
+lib/src/model/cache_clear_response.dart
+lib/src/model/cache_scope.dart
 lib/src/model/category_request.dart
 lib/src/model/category_response.dart
 lib/src/model/cover_response.dart
@@ -26,11 +30,16 @@ lib/src/model/library_summary.dart
 lib/src/model/me_response.dart
 lib/src/model/member_request.dart
 lib/src/model/member_response.dart
+lib/src/model/metadata_admin_response.dart
 lib/src/model/metadata_source.dart
+lib/src/model/metadata_sync_job_response.dart
 lib/src/model/other_reading_response.dart
 lib/src/model/page_response_book_response.dart
 lib/src/model/reading_request.dart
 lib/src/model/reading_response.dart
 lib/src/model/reading_status.dart
 lib/src/model/role.dart
+lib/src/model/sync_mode.dart
+lib/src/model/sync_outcome.dart
+lib/src/model/sync_state.dart
 pubspec.yaml

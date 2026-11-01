@@ -29,4 +29,17 @@ class IsbnTest {
     void rejectsInvalidIsbn(String raw) {
         assertThat(Isbn.toIsbn13(raw)).isEmpty();
     }
+
+    @ParameterizedTest
+    @CsvSource({"9782070612758, 2070612759", "9780804429573, 080442957X", "9782070360024, 2070360024"})
+    void convertsBackToIsbn10(String isbn13, String expected) {
+        assertThat(Isbn.toIsbn10(isbn13)).contains(expected);
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"9791032100000", "978207061275"})
+    void hasNoIsbn10OutsideThe978Prefix(String isbn13) {
+        assertThat(Isbn.toIsbn10(isbn13)).isEmpty();
+    }
 }

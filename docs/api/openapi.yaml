@@ -9,6 +9,8 @@ security:
 tags:
 - name: Me
   description: Utilisateur connecté
+- name: Admin
+  description: Administration des métadonnées (propriétaire)
 - name: Lookup
   description: Recherche de métadonnées
 - name: Categories
@@ -353,6 +355,53 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/BookResponse"
+  /api/admin/metadata/sync:
+    get:
+      tags:
+      - Admin
+      operationId: getMetadataSync
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/MetadataSyncJobResponse"
+    post:
+      tags:
+      - Admin
+      operationId: startMetadataSync
+      responses:
+        "202":
+          description: Accepted
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/MetadataSyncJobResponse"
+  /api/admin/metadata/books/{id}/sync:
+    post:
+      tags:
+      - Admin
+      operationId: syncBookMetadata
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: mode
+        in: query
+        required: false
+        schema:
+          $ref: "#/components/schemas/SyncMode"
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/BookSyncResponse"
   /api/me:
     get:
       tags:
@@ -383,6 +432,18 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/IsbnLookupResponse"
+  /api/admin/metadata:
+    get:
+      tags:
+      - Admin
+      operationId: getMetadataAdmin
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/MetadataAdminResponse"
   /api/library/members/{userId}:
     delete:
       tags:
@@ -398,6 +459,24 @@ paths:
       responses:
         "204":
           description: No Content
+  /api/admin/metadata/cache:
+    delete:
+      tags:
+      - Admin
+      operationId: clearIsbnCache
+      parameters:
+      - name: scope
+        in: query
+        required: false
+        schema:
+          $ref: "#/components/schemas/CacheScope"
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CacheClearResponse"
 components:
   schemas:
     CategoryRequest:
@@ -648,6 +727,75 @@ components:
       - email
       - role
       - userId
+    MetadataSyncJobResponse:
+      type: object
+      properties:
+        state:
+          $ref: "#/components/schemas/SyncState"
+        total:
+          type: integer
+          format: int32
+        processed:
+          type: integer
+          format: int32
+        updated:
+          type: integer
+          format: int32
+        unchanged:
+          type: integer
+          format: int32
+        notFound:
+          type: integer
+          format: int32
+        failed:
+          type: integer
+          format: int32
+        startedAt:
+          type: string
+          format: date-time
+        finishedAt:
+          type: string
+          format: date-time
+      required:
+      - failed
+      - notFound
+      - processed
+      - state
+      - total
+      - unchanged
+      - updated
+    SyncState:
+      type: string
+      enum:
+      - IDLE
+      - RUNNING
+      - DONE
+    SyncMode:
+      type: string
+      enum:
+      - FILL
+      - REPLACE
+    BookSyncResponse:
+      type: object
+      properties:
+        outcome:
+          $ref: "#/components/schemas/SyncOutcome"
+        changedFields:
+          type: array
+          items:
+            type: string
+        book:
+          $ref: "#/components/schemas/BookResponse"
+      required:
+      - book
+      - changedFields
+      - outcome
+    SyncOutcome:
+      type: string
+      enum:
+      - UPDATED
+      - UNCHANGED
+      - NOT_FOUND
     LibrarySummary:
       type: object
       properties:
@@ -721,6 +869,7 @@ components:
       - LIBRARY
       - OPEN_LIBRARY
       - GOOGLE_BOOKS
+      - BNF
     PageResponseBookResponse:
       type: object
       properties:
@@ -746,6 +895,42 @@ components:
       - size
       - totalItems
       - totalPages
+    MetadataAdminResponse:
+      type: object
+      properties:
+        books:
+          type: integer
+          format: int64
+        booksWithIsbn:
+          type: integer
+          format: int64
+        cachedIsbns:
+          type: integer
+          format: int64
+        cachedNotFound:
+          type: integer
+          format: int64
+        job:
+          $ref: "#/components/schemas/MetadataSyncJobResponse"
+      required:
+      - books
+      - booksWithIsbn
+      - cachedIsbns
+      - cachedNotFound
+      - job
+    CacheScope:
+      type: string
+      enum:
+      - NOT_FOUND
+      - ALL
+    CacheClearResponse:
+      type: object
+      properties:
+        deleted:
+          type: integer
+          format: int32
+      required:
+      - deleted
   securitySchemes:
     googleIdToken:
       type: http
