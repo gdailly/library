@@ -294,6 +294,6 @@ class BookServiceTest {
     }
 
     private static BookRequest request(String isbn, String title, Boolean owned, List<Long> categoryIds) {
-        return new BookRequest(isbn, title, null, null, null, null, null, null, null, owned, categoryIds);
+        return new BookRequest(isbn, title, null, null, null, null, null, null, null, null, null, owned, categoryIds);
     }
 }

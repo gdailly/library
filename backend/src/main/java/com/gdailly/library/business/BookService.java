@@ -80,13 +80,32 @@ public class BookService {
         PageRequest pageable = PageRequest.of(Math.max(page, 0), PAGE_SIZE, Sort.by("title", "id"));
         Page<Book> result = books.findAll(BookSpecifications.matching(filterFor(user, criteria)), pageable);
 
-        List<Long> ids = result.getContent().stream().map(Book::getId).toList();
+        Function<Book, BookResponse> mapper = listMapper(user, result.getContent());
+        return PageResponse.of(result, mapper);
+    }
+
+    /** The books of a series (same name, ignoring case and spaces), by volume number, then title. */
+    @Transactional(readOnly = true)
+    public List<BookResponse> seriesBooks(CurrentUser user, String series) {
+        String key = SeriesService.key(series);
+        List<Book> found = books.findByLibraryIdAndSeriesIsNotNull(user.libraryId()).stream()
+                .filter(book -> SeriesService.key(book.getSeries()).equals(key))
+                .sorted(Comparator.comparing(Book::getSeriesNumber, Comparator.nullsLast(Comparator.naturalOrder()))
+                        .thenComparing(Book::getTitle, String.CASE_INSENSITIVE_ORDER)
+                        .thenComparing(Book::getId))
+                .toList();
+        return found.stream().map(listMapper(user, found)).toList();
+    }
+
+    /** Maps books as in a list: the caller's own reading and the cover, without the other members' readings. */
+    private Function<Book, BookResponse> listMapper(CurrentUser user, List<Book> found) {
+        List<Long> ids = found.stream().map(Book::getId).toList();
         Map<Long, Reading> myReadings = ids.isEmpty() ? Map.of()
                 : readings.findByUserIdAndBookIdIn(user.userId(), ids).stream()
                         .collect(Collectors.toMap(Reading::getBookId, Function.identity()));
-        Map<Long, String> names = names(result.getContent().stream().map(Book::getAddedBy).toList());
-        return PageResponse.of(result, book -> bookMapper.toResponse(book, myReadings.get(book.getId()),
-                covers.urls(book), nameOf(names, book.getAddedBy()), List.of()));
+        Map<Long, String> names = names(found.stream().map(Book::getAddedBy).toList());
+        return book -> bookMapper.toResponse(book, myReadings.get(book.getId()), covers.urls(book),
+                nameOf(names, book.getAddedBy()), List.of());
     }
 
     @Transactional(readOnly = true)

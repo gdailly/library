@@ -32,6 +32,10 @@ public class Book {
 
     private String subtitle;
 
+    private String series;
+
+    private Integer seriesNumber;
+
     private String authors;
 
     private String publisher;
@@ -100,6 +104,22 @@ public class Book {
 
     public void setSubtitle(String subtitle) {
         this.subtitle = subtitle;
+    }
+
+    public String getSeries() {
+        return series;
+    }
+
+    public void setSeries(String series) {
+        this.series = series;
+    }
+
+    public Integer getSeriesNumber() {
+        return seriesNumber;
+    }
+
+    public void setSeriesNumber(Integer seriesNumber) {
+        this.seriesNumber = seriesNumber;
     }
 
     public String getAuthors() {

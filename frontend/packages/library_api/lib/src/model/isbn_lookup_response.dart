@@ -31,6 +31,10 @@ class IsbnLookupResponse {
 
      this.subtitle,
 
+     this.series,
+
+     this.seriesNumber,
+
      this.authors,
 
      this.publisher,
@@ -103,6 +107,30 @@ class IsbnLookupResponse {
 
 
   final String? subtitle;
+
+
+
+  @JsonKey(
+    
+    name: r'series',
+    required: false,
+    includeIfNull: false,
+  )
+
+
+  final String? series;
+
+
+
+  @JsonKey(
+    
+    name: r'seriesNumber',
+    required: false,
+    includeIfNull: false,
+  )
+
+
+  final int? seriesNumber;
 
 
 
@@ -199,6 +227,8 @@ class IsbnLookupResponse {
       other.existingBookId == existingBookId &&
       other.title == title &&
       other.subtitle == subtitle &&
+      other.series == series &&
+      other.seriesNumber == seriesNumber &&
       other.authors == authors &&
       other.publisher == publisher &&
       other.year == year &&
@@ -214,6 +244,8 @@ class IsbnLookupResponse {
         existingBookId.hashCode +
         title.hashCode +
         subtitle.hashCode +
+        series.hashCode +
+        seriesNumber.hashCode +
         authors.hashCode +
         publisher.hashCode +
         year.hashCode +

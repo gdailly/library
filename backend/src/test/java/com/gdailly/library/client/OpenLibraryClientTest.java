@@ -86,6 +86,17 @@ class OpenLibraryClientTest {
     }
 
     @Test
+    void readsSeriesFromSubjectsWithoutVolume() {
+        BookMetadata book = client.parse("9782012101357", """
+                {"ISBN:9782012101357": {"title": "Astérix et les Goths", "subjects": [
+                  {"name": "Bandes dessinées"}, {"name": "series:Astérix", "url": "x"}]}}
+                """).orElseThrow();
+
+        assertThat(book.series()).isEqualTo("Astérix");
+        assertThat(book.seriesNumber()).isNull();
+    }
+
+    @Test
     void keepsPublisherWithoutBrackets() {
         assertThat(OpenLibraryClient.publisher("Gallimard")).isEqualTo("Gallimard");
         assertThat(OpenLibraryClient.publisher("[ ]")).isNull();

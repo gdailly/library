@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:library_api/library_api.dart';
 
 import '../../core/api.dart';
+import '../series/series_providers.dart';
 import 'books_providers.dart';
 
 /// The update request that keeps a book as it is, except for what the caller changes.
@@ -9,6 +10,8 @@ BookRequest requestFrom(BookResponse book, {bool? owned}) => BookRequest(
       isbn: book.isbn13,
       title: book.title,
       subtitle: book.subtitle,
+      series: book.series,
+      seriesNumber: book.seriesNumber,
       authors: book.authors,
       publisher: book.publisher,
       year: book.year,
@@ -43,13 +46,16 @@ class BookActions {
 
   Future<void> delete(int id) async {
     await _books.deleteBook(id: id);
-    _ref.invalidate(booksProvider);
+    _ref
+      ..invalidate(booksProvider)
+      ..invalidate(seriesListProvider);
   }
 
   void _refresh(int id) {
     _ref
       ..invalidate(booksProvider)
-      ..invalidate(bookProvider(id));
+      ..invalidate(bookProvider(id))
+      ..invalidate(seriesListProvider);
   }
 }
 

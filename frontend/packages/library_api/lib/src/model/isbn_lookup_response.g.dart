@@ -17,6 +17,10 @@ abstract class _$IsbnLookupResponseCWProxy {
 
   IsbnLookupResponse subtitle(String? subtitle);
 
+  IsbnLookupResponse series(String? series);
+
+  IsbnLookupResponse seriesNumber(int? seriesNumber);
+
   IsbnLookupResponse authors(String? authors);
 
   IsbnLookupResponse publisher(String? publisher);
@@ -43,6 +47,8 @@ abstract class _$IsbnLookupResponseCWProxy {
     int? existingBookId,
     String title,
     String? subtitle,
+    String? series,
+    int? seriesNumber,
     String? authors,
     String? publisher,
     int? year,
@@ -74,6 +80,13 @@ class _$IsbnLookupResponseCWProxyImpl implements _$IsbnLookupResponseCWProxy {
 
   @override
   IsbnLookupResponse subtitle(String? subtitle) => this(subtitle: subtitle);
+
+  @override
+  IsbnLookupResponse series(String? series) => this(series: series);
+
+  @override
+  IsbnLookupResponse seriesNumber(int? seriesNumber) =>
+      this(seriesNumber: seriesNumber);
 
   @override
   IsbnLookupResponse authors(String? authors) => this(authors: authors);
@@ -109,6 +122,8 @@ class _$IsbnLookupResponseCWProxyImpl implements _$IsbnLookupResponseCWProxy {
     Object? existingBookId = const $CopyWithPlaceholder(),
     Object? title = const $CopyWithPlaceholder(),
     Object? subtitle = const $CopyWithPlaceholder(),
+    Object? series = const $CopyWithPlaceholder(),
+    Object? seriesNumber = const $CopyWithPlaceholder(),
     Object? authors = const $CopyWithPlaceholder(),
     Object? publisher = const $CopyWithPlaceholder(),
     Object? year = const $CopyWithPlaceholder(),
@@ -138,6 +153,14 @@ class _$IsbnLookupResponseCWProxyImpl implements _$IsbnLookupResponseCWProxy {
           ? _value.subtitle
           // ignore: cast_nullable_to_non_nullable
           : subtitle as String?,
+      series: series == const $CopyWithPlaceholder()
+          ? _value.series
+          // ignore: cast_nullable_to_non_nullable
+          : series as String?,
+      seriesNumber: seriesNumber == const $CopyWithPlaceholder()
+          ? _value.seriesNumber
+          // ignore: cast_nullable_to_non_nullable
+          : seriesNumber as int?,
       authors: authors == const $CopyWithPlaceholder()
           ? _value.authors
           // ignore: cast_nullable_to_non_nullable
@@ -196,6 +219,11 @@ IsbnLookupResponse _$IsbnLookupResponseFromJson(Map<String, dynamic> json) =>
         ),
         title: $checkedConvert('title', (v) => v as String),
         subtitle: $checkedConvert('subtitle', (v) => v as String?),
+        series: $checkedConvert('series', (v) => v as String?),
+        seriesNumber: $checkedConvert(
+          'seriesNumber',
+          (v) => (v as num?)?.toInt(),
+        ),
         authors: $checkedConvert('authors', (v) => v as String?),
         publisher: $checkedConvert('publisher', (v) => v as String?),
         year: $checkedConvert('year', (v) => (v as num?)?.toInt()),
@@ -214,6 +242,8 @@ Map<String, dynamic> _$IsbnLookupResponseToJson(IsbnLookupResponse instance) =>
       'existingBookId': ?instance.existingBookId,
       'title': instance.title,
       'subtitle': ?instance.subtitle,
+      'series': ?instance.series,
+      'seriesNumber': ?instance.seriesNumber,
       'authors': ?instance.authors,
       'publisher': ?instance.publisher,
       'year': ?instance.year,

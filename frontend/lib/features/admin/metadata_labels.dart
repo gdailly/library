@@ -16,6 +16,8 @@ const externalSources = [MetadataSource.BNF, MetadataSource.OPEN_LIBRARY, Metada
 const metadataFields = {
   'title': 'Titre',
   'subtitle': 'Sous-titre',
+  'series': 'Série',
+  'seriesNumber': 'Tome',
   'authors': 'Auteurs',
   'publisher': 'Éditeur',
   'year': 'Année',
@@ -29,6 +31,8 @@ const metadataFields = {
 String? bookValue(BookResponse book, String field) => switch (field) {
       'title' => book.title,
       'subtitle' => book.subtitle,
+      'series' => book.series,
+      'seriesNumber' => book.seriesNumber?.toString(),
       'authors' => book.authors,
       'publisher' => book.publisher,
       'year' => book.year?.toString(),
@@ -42,6 +46,8 @@ String? bookValue(BookResponse book, String field) => switch (field) {
 String? sourceValue(SourceMetadataResponse answer, String field) => switch (field) {
       'title' => answer.title,
       'subtitle' => answer.subtitle,
+      'series' => answer.series,
+      'seriesNumber' => answer.seriesNumber?.toString(),
       'authors' => answer.authors,
       'publisher' => answer.publisher,
       'year' => answer.year?.toString(),

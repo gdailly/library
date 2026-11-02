@@ -13,6 +13,8 @@ import '../features/books/book_detail_screen.dart';
 import '../features/books/library_screen.dart';
 import '../features/books/wishlist_screen.dart';
 import '../features/home/home_shell.dart';
+import '../features/series/series_detail_screen.dart';
+import '../features/series/series_screen.dart';
 import '../features/settings/settings_screen.dart';
 
 /// Routes; everything but /login needs a signed-in member.
@@ -37,6 +39,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, _, shell) => HomeShell(shell: shell),
         branches: [
           StatefulShellBranch(routes: [GoRoute(path: '/', builder: (_, _) => const LibraryScreen())]),
+          StatefulShellBranch(routes: [GoRoute(path: '/series', builder: (_, _) => const SeriesScreen())]),
           StatefulShellBranch(
             routes: [GoRoute(path: '/wishlist', builder: (_, _) => const WishlistScreen())],
           ),
@@ -44,6 +47,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [GoRoute(path: '/settings', builder: (_, _) => const SettingsScreen())],
           ),
         ],
+      ),
+      GoRoute(
+        path: '/series/books',
+        builder: (_, state) => SeriesDetailScreen(name: state.uri.queryParameters['name'] ?? ''),
       ),
       GoRoute(path: '/scan', builder: (_, _) => const ScanScreen()),
       GoRoute(path: '/admin', builder: (_, _) => const AdminScreen()),

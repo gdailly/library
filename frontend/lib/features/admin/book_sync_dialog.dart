@@ -10,6 +10,8 @@ import '../books/books_providers.dart';
 const syncFieldLabels = {
   'title': 'titre',
   'subtitle': 'sous-titre',
+  'series': 'série',
+  'seriesNumber': 'tome',
   'authors': 'auteurs',
   'publisher': 'éditeur',
   'year': 'année',

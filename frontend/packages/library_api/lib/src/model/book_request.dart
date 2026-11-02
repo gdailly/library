@@ -26,6 +26,10 @@ class BookRequest {
 
      this.subtitle,
 
+     this.series,
+
+     this.seriesNumber,
+
      this.authors,
 
      this.publisher,
@@ -76,6 +80,32 @@ class BookRequest {
 
 
   final String? subtitle;
+
+
+
+  @JsonKey(
+    
+    name: r'series',
+    required: false,
+    includeIfNull: false,
+  )
+
+
+  final String? series;
+
+
+
+          // minimum: 0
+          // maximum: 9999
+  @JsonKey(
+    
+    name: r'seriesNumber',
+    required: false,
+    includeIfNull: false,
+  )
+
+
+  final int? seriesNumber;
 
 
 
@@ -186,6 +216,8 @@ class BookRequest {
       other.isbn == isbn &&
       other.title == title &&
       other.subtitle == subtitle &&
+      other.series == series &&
+      other.seriesNumber == seriesNumber &&
       other.authors == authors &&
       other.publisher == publisher &&
       other.year == year &&
@@ -200,6 +232,8 @@ class BookRequest {
         isbn.hashCode +
         title.hashCode +
         subtitle.hashCode +
+        series.hashCode +
+        seriesNumber.hashCode +
         authors.hashCode +
         publisher.hashCode +
         year.hashCode +

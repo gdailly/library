@@ -22,6 +22,8 @@ final class MetadataMerger {
     static final List<LookupSource> PAGES = List.of(LookupSource.OPEN_LIBRARY, LookupSource.BNF, LookupSource.GOOGLE_BOOKS);
     /** Only Google Books has publisher summaries; the BnF rarely does. */
     static final List<LookupSource> DESCRIPTIVE = List.of(LookupSource.GOOGLE_BOOKS, LookupSource.BNF, LookupSource.OPEN_LIBRARY);
+    /** Series come with their volume number from the BnF; Open Library only names them. */
+    static final List<LookupSource> SERIES = List.of(LookupSource.BNF, LookupSource.OPEN_LIBRARY, LookupSource.GOOGLE_BOOKS);
     /** Google Books images are the largest; Open Library covers are served slowly by archive.org. */
     static final List<LookupSource> COVERS = List.of(LookupSource.GOOGLE_BOOKS, LookupSource.OPEN_LIBRARY, LookupSource.BNF);
 
@@ -44,6 +46,11 @@ final class MetadataMerger {
                 covers.add(answer.coverUrl());
             }
         }
+        // The series and its volume number are taken together, from the first source that names the series.
+        Optional<BookMetadata> series = SERIES.stream()
+                .map(answers::get)
+                .filter(answer -> answer != null && answer.series() != null)
+                .findFirst();
         BookMetadata merged = new BookMetadata(
                 answers.get(titleSource.get()).title(),
                 first(answers, BIBLIOGRAPHIC, BookMetadata::subtitle),
@@ -53,7 +60,9 @@ final class MetadataMerger {
                 first(answers, PAGES, BookMetadata::pages),
                 first(answers, DESCRIPTIVE, BookMetadata::language),
                 first(answers, DESCRIPTIVE, BookMetadata::summary),
-                covers.isEmpty() ? null : covers.getFirst());
+                covers.isEmpty() ? null : covers.getFirst(),
+                series.map(BookMetadata::series).orElse(null),
+                series.map(BookMetadata::seriesNumber).orElse(null));
         return Optional.of(new Merged(titleSource.get(), merged, List.copyOf(covers)));
     }
 

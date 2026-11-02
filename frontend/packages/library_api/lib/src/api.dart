@@ -13,6 +13,7 @@ import 'package:library_api/src/api/categories_api.dart';
 import 'package:library_api/src/api/lookup_api.dart';
 import 'package:library_api/src/api/me_api.dart';
 import 'package:library_api/src/api/members_api.dart';
+import 'package:library_api/src/api/series_api.dart';
 
 class LibraryApi {
   static const String basePath = r'http://localhost';
@@ -139,5 +140,11 @@ class LibraryApi {
   /// by doing that all interceptors will not be executed
   MembersApi getMembersApi() {
     return MembersApi(dio);
+  }
+
+  /// Get SeriesApi instance, base route and serializer can be overridden by a given but be careful,
+  /// by doing that all interceptors will not be executed
+  SeriesApi getSeriesApi() {
+    return SeriesApi(dio);
   }
 }

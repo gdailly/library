@@ -68,7 +68,7 @@ Bibliothèque **partagée** : les livres sont communs ; rôles OWNER (invite/ret
 | `app_user` | id, email (unique), name, avatar_url, created_at |
 | `library` | id, name |
 | `library_member` | library_id, user_id, role (OWNER, MEMBER) |
-| `book` | id, library_id, isbn13, title, subtitle, authors (texte), publisher, year, pages, language, cover_key, summary, owned (bool : false = liste d'envies), added_by, created_at |
+| `book` | id, library_id, isbn13, title, subtitle, series, series_number (tome), authors (texte), publisher, year, pages, language, cover_key, summary, owned (bool : false = liste d'envies), added_by, created_at |
 | `category` | id, library_id, name, color |
 | `book_category` | book_id, category_id |
 | `reading` | book_id, user_id, status (TO_READ, READING, READ, ABANDONED), rating (1-5, null), review, started_on, finished_on — unique (book_id, user_id) |
@@ -97,6 +97,7 @@ Normaliser l'ISBN en 13 chiffres (convertir les ISBN-10). Ne jamais appeler les 
 | PUT | `/books/{id}/reading` | Mon statut / note / avis |
 | GET | `/lookup/isbn/{isbn}` | Métadonnées (avec cache) |
 | POST | `/lookup/cover`, `/lookup/shelf` | Reconnaissance IA (lots 2-3, 503 si désactivée) |
+| GET | `/series?q=`, `/series/books?name=` | Séries : tomes présents, en envie et manquants ; livres d'une série par tome |
 | CRUD | `/categories` | Catégories |
 | GET / POST / DELETE | `/library/members` | Membres (OWNER seulement pour écrire) |
 | GET / POST / DELETE | `/admin/metadata`, `/admin/metadata/sync`, `/admin/metadata/books`, `/admin/metadata/books/{id}` (`/sync`, `/apply`), `/admin/metadata/cache` | Administration des métadonnées : comparaison des sources livre par livre, resynchronisation, purge du cache ISBN (administrateur seulement) |
@@ -124,7 +125,7 @@ Redimensionner les photos à ~1000 px avant envoi (coût ≈ 0,002 $ par photo).
 
 - Couleurs : accent `#1F5E4B` (teinte claire `#E6F0EC`), fond `#FAFAF7`, texte `#1B1E22`, secondaire `#5B6168`, bordures `#E4E4DF`, étoiles `#D99A2B`, erreur `#8A2A1B` sur `#FCEDEA`.
 - Polices : Bricolage Grotesque (titres), Instrument Sans (texte) — via `google_fonts`.
-- Mobile : barre 3 onglets (Bibliothèque, Envies, Réglages) + bouton flottant « Scanner ». Écrans : Connexion, Bibliothèque (grille/liste, filtres), Scan, Confirmation d'ajout, Fiche livre, Envies, Réglages.
+- Mobile : barre 4 onglets (Bibliothèque, Séries, Envies, Réglages) + bouton flottant « Scanner ». Écrans : Connexion, Bibliothèque (grille/liste, filtres), Scan, Confirmation d'ajout, Fiche livre, Envies, Réglages.
 - Web (≥ 1024 px) : menu latéral, grille + fiche en panneau à droite, ajout en fenêtre modale (saisie ISBN d'abord, webcam en option), envies en tableau, réglages en 2 colonnes.
 - Cibles tactiles ≥ 44 px ; contraste texte ≥ 4.5:1.
 - Bouton de connexion : utiliser le bouton officiel « Sign in with Google ».

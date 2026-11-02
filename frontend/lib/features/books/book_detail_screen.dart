@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:library_api/library_api.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -7,6 +8,7 @@ import '../../core/theme.dart';
 import '../../shared/message_box.dart';
 import '../admin/book_sync_dialog.dart';
 import '../auth/auth_controller.dart';
+import '../series/series_labels.dart';
 import 'book_actions.dart';
 import 'book_cover.dart';
 import 'books_providers.dart';
@@ -92,6 +94,17 @@ class _BookDetail extends StatelessWidget {
         Text(book.title, textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineMedium),
         if (book.subtitle != null)
           Text(book.subtitle!, textAlign: TextAlign.center, style: const TextStyle(fontSize: 16)),
+        if (book.series case final series?) ...[
+          const SizedBox(height: 4),
+          Center(
+            child: TextButton.icon(
+              onPressed: () => context.push(seriesLocation(series)),
+              icon: const Icon(Icons.collections_bookmark_outlined, size: 18),
+              label: Text(seriesLabel(series, book.seriesNumber)),
+              style: TextButton.styleFrom(minimumSize: const Size(44, 44)),
+            ),
+          ),
+        ],
         if (book.authors != null) ...[
           const SizedBox(height: 6),
           Text(

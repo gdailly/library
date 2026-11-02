@@ -106,7 +106,23 @@ public class BnfClient implements MetadataClient {
                 pages(record.first("215", "a")),
                 language(record.first("101", "a")),
                 record.first("330", "a"),
-                null));
+                null,
+                series(record),
+                seriesNumber(record)));
+    }
+
+    /** Series statement (225), else the link to the series record (461). */
+    private static String series(Unimarc record) {
+        String series = BookMetadata.seriesTitle(record.first("225", "a"));
+        return series != null ? series : BookMetadata.seriesTitle(record.first("461", "t"));
+    }
+
+    /** Volume number of the field the series came from. */
+    private static Integer seriesNumber(Unimarc record) {
+        if (record.first("225", "a") != null) {
+            return BookMetadata.parseSeriesNumber(record.first("225", "v"));
+        }
+        return BookMetadata.parseSeriesNumber(record.first("461", "v"));
     }
 
     /** Main and co-authors ("Albert Camus"), else the statement of responsibility of the title. */

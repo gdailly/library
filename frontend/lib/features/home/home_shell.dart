@@ -15,9 +15,13 @@ class HomeShell extends ConsumerWidget {
 
   static const _destinations = [
     (icon: Icons.auto_stories_outlined, label: 'Bibliothèque'),
+    (icon: Icons.collections_bookmark_outlined, label: 'Séries'),
     (icon: Icons.favorite_border, label: 'Envies'),
     (icon: Icons.tune, label: 'Réglages'),
   ];
+
+  /// Index of Réglages, the only tab without the "Scanner" button.
+  static const _settings = 3;
 
   void _go(int index) => shell.goBranch(index, initialLocation: index == shell.currentIndex);
 
@@ -49,7 +53,7 @@ class HomeShell extends ConsumerWidget {
     }
     return Scaffold(
       body: SafeArea(child: shell),
-      floatingActionButton: shell.currentIndex < 2
+      floatingActionButton: shell.currentIndex != _settings
           ? FloatingActionButton.extended(
               onPressed: () => _scan(context),
               icon: const Icon(Icons.qr_code_scanner),

@@ -239,6 +239,8 @@ public class MetadataSyncService {
         };
         text.apply("title", book.getTitle(), limit(found.title(), 500), book::setTitle);
         text.apply("subtitle", book.getSubtitle(), limit(found.subtitle(), 500), book::setSubtitle);
+        text.apply("series", book.getSeries(), limit(found.series(), 300), book::setSeries);
+        number.apply("seriesNumber", book.getSeriesNumber(), found.seriesNumber(), book::setSeriesNumber);
         text.apply("authors", book.getAuthors(), limit(found.authors(), 1000), book::setAuthors);
         text.apply("publisher", book.getPublisher(), limit(found.publisher(), 300), book::setPublisher);
         number.apply("year", book.getYear(), found.year(), book::setYear);

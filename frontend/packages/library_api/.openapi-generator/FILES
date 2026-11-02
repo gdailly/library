@@ -11,6 +11,7 @@ lib/src/api/categories_api.dart
 lib/src/api/lookup_api.dart
 lib/src/api/me_api.dart
 lib/src/api/members_api.dart
+lib/src/api/series_api.dart
 lib/src/auth/api_key_auth.dart
 lib/src/auth/auth.dart
 lib/src/auth/basic_auth.dart
@@ -43,6 +44,7 @@ lib/src/model/reading_request.dart
 lib/src/model/reading_response.dart
 lib/src/model/reading_status.dart
 lib/src/model/role.dart
+lib/src/model/series_response.dart
 lib/src/model/source_metadata_response.dart
 lib/src/model/sync_mode.dart
 lib/src/model/sync_outcome.dart

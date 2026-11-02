@@ -13,6 +13,10 @@ abstract class _$BookRequestCWProxy {
 
   BookRequest subtitle(String? subtitle);
 
+  BookRequest series(String? series);
+
+  BookRequest seriesNumber(int? seriesNumber);
+
   BookRequest authors(String? authors);
 
   BookRequest publisher(String? publisher);
@@ -39,6 +43,8 @@ abstract class _$BookRequestCWProxy {
     String? isbn,
     String title,
     String? subtitle,
+    String? series,
+    int? seriesNumber,
     String? authors,
     String? publisher,
     int? year,
@@ -64,6 +70,13 @@ class _$BookRequestCWProxyImpl implements _$BookRequestCWProxy {
 
   @override
   BookRequest subtitle(String? subtitle) => this(subtitle: subtitle);
+
+  @override
+  BookRequest series(String? series) => this(series: series);
+
+  @override
+  BookRequest seriesNumber(int? seriesNumber) =>
+      this(seriesNumber: seriesNumber);
 
   @override
   BookRequest authors(String? authors) => this(authors: authors);
@@ -101,6 +114,8 @@ class _$BookRequestCWProxyImpl implements _$BookRequestCWProxy {
     Object? isbn = const $CopyWithPlaceholder(),
     Object? title = const $CopyWithPlaceholder(),
     Object? subtitle = const $CopyWithPlaceholder(),
+    Object? series = const $CopyWithPlaceholder(),
+    Object? seriesNumber = const $CopyWithPlaceholder(),
     Object? authors = const $CopyWithPlaceholder(),
     Object? publisher = const $CopyWithPlaceholder(),
     Object? year = const $CopyWithPlaceholder(),
@@ -123,6 +138,14 @@ class _$BookRequestCWProxyImpl implements _$BookRequestCWProxy {
           ? _value.subtitle
           // ignore: cast_nullable_to_non_nullable
           : subtitle as String?,
+      series: series == const $CopyWithPlaceholder()
+          ? _value.series
+          // ignore: cast_nullable_to_non_nullable
+          : series as String?,
+      seriesNumber: seriesNumber == const $CopyWithPlaceholder()
+          ? _value.seriesNumber
+          // ignore: cast_nullable_to_non_nullable
+          : seriesNumber as int?,
       authors: authors == const $CopyWithPlaceholder()
           ? _value.authors
           // ignore: cast_nullable_to_non_nullable
@@ -176,6 +199,11 @@ BookRequest _$BookRequestFromJson(Map<String, dynamic> json) =>
         isbn: $checkedConvert('isbn', (v) => v as String?),
         title: $checkedConvert('title', (v) => v as String),
         subtitle: $checkedConvert('subtitle', (v) => v as String?),
+        series: $checkedConvert('series', (v) => v as String?),
+        seriesNumber: $checkedConvert(
+          'seriesNumber',
+          (v) => (v as num?)?.toInt(),
+        ),
         authors: $checkedConvert('authors', (v) => v as String?),
         publisher: $checkedConvert('publisher', (v) => v as String?),
         year: $checkedConvert('year', (v) => (v as num?)?.toInt()),
@@ -196,6 +224,8 @@ Map<String, dynamic> _$BookRequestToJson(BookRequest instance) =>
       'isbn': ?instance.isbn,
       'title': instance.title,
       'subtitle': ?instance.subtitle,
+      'series': ?instance.series,
+      'seriesNumber': ?instance.seriesNumber,
       'authors': ?instance.authors,
       'publisher': ?instance.publisher,
       'year': ?instance.year,
