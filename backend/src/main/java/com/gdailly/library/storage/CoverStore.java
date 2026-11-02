@@ -22,6 +22,8 @@ import javax.imageio.ImageWriteParam;
 import javax.imageio.ImageWriter;
 import javax.imageio.stream.ImageOutputStream;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import com.gdailly.library.config.LivreProperties;
@@ -56,6 +58,8 @@ public class CoverStore {
         }
     }
 
+    private static final Logger log = LoggerFactory.getLogger(CoverStore.class);
+
     private static final float WEBP_QUALITY = 0.8f;
     private static final float JPEG_QUALITY = 0.9f;
 
@@ -68,6 +72,22 @@ public class CoverStore {
         if (!ImageIO.getImageWritersByFormatName("webp").hasNext()) {
             throw new IllegalStateException("No WebP ImageIO writer: check the webp-imageio dependency and native access");
         }
+        warnIfNotWritable(directory);
+    }
+
+    /** Says at startup, rather than at the first cover, that covers cannot be saved; the rest of the app still works. */
+    static boolean warnIfNotWritable(Path directory) {
+        try {
+            Files.createDirectories(directory);
+        } catch (IOException e) {
+            // Reported below.
+        }
+        if (Files.isDirectory(directory) && Files.isWritable(directory)) {
+            return true;
+        }
+        log.error("Cover directory {} is not writable: no cover can be saved (check its owner, the backend runs as uid 10001)",
+                directory.toAbsolutePath());
+        return false;
     }
 
     /**

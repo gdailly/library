@@ -20,12 +20,21 @@ services:
       timeout: 5s
       retries: 10
 
+  # The backend runs as uid 10001; a bind-mounted directory created by Docker belongs to root.
+  covers-permissions:
+    image: busybox:1.37
+    command: chown 10001 /data/covers
+    volumes:
+      - ./data/covers:/data/covers
+
   backend:
     build: ../backend
     restart: unless-stopped
     depends_on:
       mariadb:
         condition: service_healthy
+      covers-permissions:
+        condition: service_completed_successfully
     environment:
       MARIADB_HOST: mariadb
       MARIADB_DATABASE: ${MARIADB_DATABASE}

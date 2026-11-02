@@ -111,6 +111,13 @@ class CoverStoreTest {
     }
 
     /** Opaque green top half, transparent bottom half. */
+    @Test
+    void tellsWhetherTheCoverDirectoryCanBeWritten() throws IOException {
+        assertThat(CoverStore.warnIfNotWritable(directory.resolve("new"))).isTrue();
+        Path file = Files.writeString(directory.resolve("not-a-directory"), "x");
+        assertThat(CoverStore.warnIfNotWritable(file)).isFalse();
+    }
+
     private static byte[] png(int width, int height) throws IOException {
         BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g = image.createGraphics();
