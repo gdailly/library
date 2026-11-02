@@ -6,6 +6,7 @@ import 'package:library_api/library_api.dart';
 
 import '../../core/api.dart';
 import 'google_auth_gateway.dart';
+import 'token_store.dart';
 
 sealed class AuthState {
   const AuthState();
@@ -54,6 +55,8 @@ class AuthController extends Notifier<AuthState> {
 
   GoogleAuthGateway get _gateway => ref.read(googleAuthGatewayProvider);
 
+  TokenStore get _store => ref.read(tokenStoreProvider);
+
   Future<void> _start() async {
     try {
       await _gateway.initialize();
@@ -61,6 +64,11 @@ class AuthController extends Notifier<AuthState> {
         _onToken,
         onError: (Object _) => state = const AuthSignedOut(),
       );
+      // A page reload on the web: the token of the previous visit is still valid for a while.
+      final saved = _store.read();
+      if (saved != null && await _onToken(saved, saved: true)) {
+        return;
+      }
       final restored = _gateway.restore();
       if (restored == null) {
         // The platform answers through idTokens, maybe never: show the sign-in screen meanwhile.
@@ -93,6 +101,7 @@ class AuthController extends Notifier<AuthState> {
   }
 
   Future<void> signOut({String? message}) async {
+    _store.clear();
     state = AuthSignedOut(message: message);
     await _gateway.signOut();
   }
@@ -104,22 +113,31 @@ class AuthController extends Notifier<AuthState> {
     }
   }
 
-  Future<void> _onToken(String? token) async {
+  /// Whether the token signed the member in. A [saved] token the API refuses is forgotten silently: the usual
+  /// restoring then takes over.
+  Future<bool> _onToken(String? token, {bool saved = false}) async {
     if (token == null) {
+      _store.clear();
       state = const AuthSignedOut();
-      return;
+      return false;
     }
     if (token == state.idToken || token == _checking) {
-      return;
+      return false;
     }
     _checking = token;
     try {
       final me = await ref.read(libraryApiProvider).getMeApi().getMe(
         headers: {'Authorization': 'Bearer $token'},
       );
+      _store.save(token);
       state = AuthSignedIn(token: token, me: me.data!);
+      return true;
     } on DioException catch (e) {
       final status = e.response?.statusCode;
+      if (saved && status == 401) {
+        _store.clear();
+        return false;
+      }
       await signOut(
         message: status == 403
             ? notInvited
@@ -127,6 +145,7 @@ class AuthController extends Notifier<AuthState> {
                 ? 'Google a refusé la connexion. Réessaie.'
                 : errorMessage(e),
       );
+      return false;
     } finally {
       _checking = null;
     }

@@ -1,10 +1,13 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:library_api/library_api.dart';
 import 'package:library_app/features/auth/auth_controller.dart';
 import 'package:library_app/features/auth/google_auth_gateway.dart';
+import 'package:library_app/features/auth/token_storage_stub.dart';
+import 'package:library_app/features/auth/token_store.dart';
 import 'package:mocktail/mocktail.dart';
 
 import '../../helpers.dart';
@@ -34,8 +37,28 @@ class FakeGateway implements GoogleAuthGateway {
   Future<void> signOut() async => signOuts++;
 }
 
+class MemoryStorage extends TokenStorage {
+  final values = <String, String>{};
+
+  @override
+  String? read(String key) => values[key];
+
+  @override
+  void write(String key, String value) => values[key] = value;
+
+  @override
+  void remove(String key) => values.remove(key);
+}
+
+/// A JWT whose payload expires at [exp]; the signature is not checked by the app.
+String jwt(DateTime exp) {
+  String part(Map<String, Object> json) => base64Url.encode(utf8.encode(jsonEncode(json))).replaceAll('=', '');
+  return '${part({'alg': 'RS256'})}.${part({'exp': exp.millisecondsSinceEpoch ~/ 1000})}.signature';
+}
+
 void main() {
   late FakeGateway gateway;
+  late MemoryStorage storage;
   late FakeApi api;
   late ProviderContainer container;
 
@@ -49,7 +72,11 @@ void main() {
   ProviderContainer start() {
     container = ProviderContainer(
       retry: (_, _) => null,
-      overrides: [googleAuthGatewayProvider.overrideWithValue(gateway), api.override],
+      overrides: [
+        googleAuthGatewayProvider.overrideWithValue(gateway),
+        tokenStoreProvider.overrideWithValue(TokenStore(storage: storage)),
+        api.override,
+      ],
     );
     addTearDown(container.dispose);
     container.listen(authControllerProvider, (_, _) {});
@@ -72,6 +99,7 @@ void main() {
 
   setUp(() {
     gateway = FakeGateway();
+    storage = MemoryStorage();
     api = FakeApi();
   });
 
@@ -165,5 +193,53 @@ void main() {
 
     expect(container.read(authControllerProvider), isA<AuthSignedOut>());
     expect(container.read(authControllerProvider).idToken, isNull);
+  });
+
+  test('stays signed in after a page reload while the token is valid', () async {
+    final token = jwt(DateTime.now().add(const Duration(minutes: 40)));
+    storage.values[TokenStore.key] = token;
+    gateway.restored = null; // the web platform does not answer
+    meAnswers(me);
+    start();
+
+    final state = await settled();
+
+    expect(state, isA<AuthSignedIn>());
+    expect(state.idToken, token);
+  });
+
+  test('forgets an expired or refused saved token and shows the sign-in screen', () async {
+    storage.values[TokenStore.key] = jwt(DateTime.now().subtract(const Duration(minutes: 1)));
+    start();
+    expect(await settled(), isA<AuthSignedOut>());
+    expect(storage.values, isEmpty);
+    verifyNever(() => api.me.getMe(headers: any(named: 'headers')));
+
+    container.dispose();
+    storage.values[TokenStore.key] = jwt(DateTime.now().add(const Duration(minutes: 40)));
+    meAnswers(httpError(401));
+    start();
+    final state = await settled();
+    expect((state as AuthSignedOut).message, isNull);
+    expect(storage.values, isEmpty);
+  });
+
+  test('saves the token of a sign-in and forgets it on sign-out', () async {
+    final token = jwt(DateTime.now().add(const Duration(hours: 1)));
+    gateway.restored = Future.value(token);
+    meAnswers(me);
+    start();
+    await settled();
+    expect(storage.values[TokenStore.key], token);
+
+    await container.read(authControllerProvider.notifier).signOut();
+
+    expect(storage.values, isEmpty);
+  });
+
+  test('reads the expiry of a token', () {
+    expect(TokenStore.expiryOf(jwt(DateTime.utc(2030, 1, 1))), DateTime.utc(2030, 1, 1));
+    expect(TokenStore.expiryOf('not-a-jwt'), isNull);
+    expect(TokenStore.expiryOf('a.b@@.c'), isNull);
   });
 }
