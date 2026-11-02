@@ -10,6 +10,8 @@ public record SourceMetadataResponse(
         @Nullable MetadataSource source,
         String title,
         @Nullable String subtitle,
+        @Nullable String series,
+        @Nullable Integer seriesNumber,
         @Nullable String authors,
         @Nullable String publisher,
         @Nullable Integer year,

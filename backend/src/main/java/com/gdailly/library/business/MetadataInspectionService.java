@@ -46,7 +46,7 @@ public class MetadataInspectionService {
 
     static final int PAGE_SIZE = 50;
     static final Set<String> FIELD_NAMES =
-            Set.of("title", "subtitle", "authors", "publisher", "year", "pages", "language", "summary", "cover");
+            Set.of("title", "subtitle", "series", "seriesNumber", "authors", "publisher", "year", "pages", "language", "summary", "cover");
 
     /** A book field and the same information in a source's answer. */
     private record Field(String name, Function<Book, Object> ofBook, Function<BookMetadata, Object> ofSource) {
@@ -55,6 +55,8 @@ public class MetadataInspectionService {
     private static final List<Field> COMPARED = List.of(
             new Field("title", Book::getTitle, BookMetadata::title),
             new Field("subtitle", Book::getSubtitle, BookMetadata::subtitle),
+            new Field("series", Book::getSeries, BookMetadata::series),
+            new Field("seriesNumber", Book::getSeriesNumber, BookMetadata::seriesNumber),
             new Field("authors", Book::getAuthors, BookMetadata::authors),
             new Field("publisher", Book::getPublisher, BookMetadata::publisher),
             new Field("year", Book::getYear, BookMetadata::year),

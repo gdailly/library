@@ -14,6 +14,8 @@ public record BookRequest(
         @Size(max = 20) @Nullable String isbn,
         @NotBlank @Size(max = 500) String title,
         @Size(max = 500) @Nullable String subtitle,
+        @Size(max = 300) @Nullable String series,
+        @Min(0) @Max(9999) @Nullable Integer seriesNumber,
         @Size(max = 1000) @Nullable String authors,
         @Size(max = 300) @Nullable String publisher,
         @Min(0) @Max(9999) @Nullable Integer year,

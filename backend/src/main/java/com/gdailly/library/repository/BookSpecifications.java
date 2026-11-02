@@ -30,6 +30,7 @@ public final class BookSpecifications {
                 List<Predicate> text = new ArrayList<>(List.of(
                         cb.like(cb.lower(book.get("title")), filter.pattern(), '\\'),
                         cb.like(cb.lower(book.get("subtitle")), filter.pattern(), '\\'),
+                        cb.like(cb.lower(book.get("series")), filter.pattern(), '\\'),
                         cb.like(cb.lower(book.get("authors")), filter.pattern(), '\\')));
                 if (filter.isbn13() != null) {
                     text.add(cb.equal(book.get("isbn13"), filter.isbn13()));

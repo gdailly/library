@@ -49,4 +49,22 @@ class MetadataMergerTest {
     void isEmptyWithoutAnswers() {
         assertThat(MetadataMerger.merge(Map.of())).isEmpty();
     }
+
+    @Test
+    void takesSeriesAndVolumeTogetherFromTheFirstSourceNamingIt() {
+        BookMetadata openLibrary = new BookMetadata("Astérix et les Goths", null, null, null, null, null, null, null,
+                null, "Astérix", null);
+        BookMetadata bnf = new BookMetadata("Astérix et les Goths", null, null, null, null, null, null, null, null,
+                "Une aventure d'Astérix", 3);
+
+        BookMetadata both = MetadataMerger.merge(Map.of(LookupSource.OPEN_LIBRARY, openLibrary, LookupSource.BNF, bnf))
+                .orElseThrow().metadata();
+        assertThat(both.series()).isEqualTo("Une aventure d'Astérix");
+        assertThat(both.seriesNumber()).isEqualTo(3);
+
+        BookMetadata onlyOpenLibrary = MetadataMerger.merge(Map.of(LookupSource.OPEN_LIBRARY, openLibrary,
+                LookupSource.BNF, BNF)).orElseThrow().metadata();
+        assertThat(onlyOpenLibrary.series()).isEqualTo("Astérix");
+        assertThat(onlyOpenLibrary.seriesNumber()).isNull();
+    }
 }

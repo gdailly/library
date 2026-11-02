@@ -67,6 +67,33 @@ class BnfClientTest {
     }
 
     @Test
+    void readsSeriesAndVolumeFromField225() {
+        BookMetadata book = client.parse("9782012101357", """
+                <r xmlns:m="info:lc/xmlns/marcxchange-v2"><m:record>
+                <m:datafield tag="200"><m:subfield code="a">Astérix et les Goths</m:subfield></m:datafield>
+                <m:datafield tag="225"><m:subfield code="a">Une aventure d'Astérix</m:subfield><m:subfield code="v">3</m:subfield></m:datafield>
+                <m:datafield tag="461"><m:subfield code="t">\u0088Une \u0089aventure d'Astérix</m:subfield><m:subfield code="v">4</m:subfield></m:datafield>
+                </m:record></r>
+                """).orElseThrow();
+
+        assertThat(book.series()).isEqualTo("Une aventure d'Astérix");
+        assertThat(book.seriesNumber()).isEqualTo(3);
+    }
+
+    @Test
+    void fallsBackToTheSeriesLink461() {
+        BookMetadata book = client.parse("9782014001334", """
+                <r xmlns:m="info:lc/xmlns/marcxchange-v2"><m:record>
+                <m:datafield tag="200"><m:subfield code="a">L'iris blanc</m:subfield></m:datafield>
+                <m:datafield tag="461"><m:subfield code="t">\u0088Une \u0089aventure d'Astérix.</m:subfield><m:subfield code="v">T. 40</m:subfield></m:datafield>
+                </m:record></r>
+                """).orElseThrow();
+
+        assertThat(book.series()).isEqualTo("Une aventure d'Astérix");
+        assertThat(book.seriesNumber()).isEqualTo(40);
+    }
+
+    @Test
     void searchesIsbn13AndIsbn10() {
         assertThat(BnfClient.query("9782070360024"))
                 .isEqualTo("bib.isbn all \"9782070360024\" or bib.isbn all \"2070360024\"");

@@ -53,7 +53,20 @@ public class OpenLibraryClient implements MetadataClient {
                 BookMetadata.positive(book.path("number_of_pages").asInt(0)),
                 null,
                 null,
-                BookMetadata.text(book.path("cover").path("large").asString(null))));
+                BookMetadata.text(book.path("cover").path("large").asString(null)),
+                series(book.path("subjects")),
+                null));
+    }
+
+    /** Open Library tags a series as a subject named "series:Astérix"; it gives no volume number. */
+    static String series(JsonNode subjects) {
+        return subjects.valueStream()
+                .map(s -> s.path("name").asString(""))
+                .filter(name -> name.regionMatches(true, 0, "series:", 0, 7))
+                .map(name -> BookMetadata.seriesTitle(name.substring(7).replace('_', ' ')))
+                .filter(java.util.Objects::nonNull)
+                .findFirst()
+                .orElse(null);
     }
 
     /** Library catalogues bracket inferred values: "[Librairie Générale Française]". */
