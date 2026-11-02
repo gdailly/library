@@ -15,6 +15,10 @@ abstract class _$BookResponseCWProxy {
 
   BookResponse subtitle(String? subtitle);
 
+  BookResponse series(String? series);
+
+  BookResponse seriesNumber(int? seriesNumber);
+
   BookResponse authors(String? authors);
 
   BookResponse publisher(String? publisher);
@@ -54,6 +58,8 @@ abstract class _$BookResponseCWProxy {
     String? isbn13,
     String title,
     String? subtitle,
+    String? series,
+    int? seriesNumber,
     String? authors,
     String? publisher,
     int? year,
@@ -88,6 +94,13 @@ class _$BookResponseCWProxyImpl implements _$BookResponseCWProxy {
 
   @override
   BookResponse subtitle(String? subtitle) => this(subtitle: subtitle);
+
+  @override
+  BookResponse series(String? series) => this(series: series);
+
+  @override
+  BookResponse seriesNumber(int? seriesNumber) =>
+      this(seriesNumber: seriesNumber);
 
   @override
   BookResponse authors(String? authors) => this(authors: authors);
@@ -147,6 +160,8 @@ class _$BookResponseCWProxyImpl implements _$BookResponseCWProxy {
     Object? isbn13 = const $CopyWithPlaceholder(),
     Object? title = const $CopyWithPlaceholder(),
     Object? subtitle = const $CopyWithPlaceholder(),
+    Object? series = const $CopyWithPlaceholder(),
+    Object? seriesNumber = const $CopyWithPlaceholder(),
     Object? authors = const $CopyWithPlaceholder(),
     Object? publisher = const $CopyWithPlaceholder(),
     Object? year = const $CopyWithPlaceholder(),
@@ -179,6 +194,14 @@ class _$BookResponseCWProxyImpl implements _$BookResponseCWProxy {
           ? _value.subtitle
           // ignore: cast_nullable_to_non_nullable
           : subtitle as String?,
+      series: series == const $CopyWithPlaceholder()
+          ? _value.series
+          // ignore: cast_nullable_to_non_nullable
+          : series as String?,
+      seriesNumber: seriesNumber == const $CopyWithPlaceholder()
+          ? _value.seriesNumber
+          // ignore: cast_nullable_to_non_nullable
+          : seriesNumber as int?,
       authors: authors == const $CopyWithPlaceholder()
           ? _value.authors
           // ignore: cast_nullable_to_non_nullable
@@ -268,6 +291,8 @@ BookResponse _$BookResponseFromJson(
     isbn13: $checkedConvert('isbn13', (v) => v as String?),
     title: $checkedConvert('title', (v) => v as String),
     subtitle: $checkedConvert('subtitle', (v) => v as String?),
+    series: $checkedConvert('series', (v) => v as String?),
+    seriesNumber: $checkedConvert('seriesNumber', (v) => (v as num?)?.toInt()),
     authors: $checkedConvert('authors', (v) => v as String?),
     publisher: $checkedConvert('publisher', (v) => v as String?),
     year: $checkedConvert('year', (v) => (v as num?)?.toInt()),
@@ -311,6 +336,8 @@ Map<String, dynamic> _$BookResponseToJson(BookResponse instance) =>
       'isbn13': ?instance.isbn13,
       'title': instance.title,
       'subtitle': ?instance.subtitle,
+      'series': ?instance.series,
+      'seriesNumber': ?instance.seriesNumber,
       'authors': ?instance.authors,
       'publisher': ?instance.publisher,
       'year': ?instance.year,

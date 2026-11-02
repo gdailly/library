@@ -22,6 +22,8 @@ class MockMembersApi extends Mock implements MembersApi {}
 
 class MockAdminApi extends Mock implements AdminApi {}
 
+class MockSeriesApi extends Mock implements SeriesApi {}
+
 /// The generated API, with each tag's client replaced by a mock.
 class FakeApi {
   FakeApi() {
@@ -31,6 +33,7 @@ class FakeApi {
     when(() => library.getCategoriesApi()).thenReturn(categories);
     when(() => library.getMembersApi()).thenReturn(members);
     when(() => library.getAdminApi()).thenReturn(admin);
+    when(() => library.getSeriesApi()).thenReturn(series);
     when(() => categories.listCategories()).thenAnswer((_) async => ok(<CategoryResponse>[]));
   }
 
@@ -41,6 +44,7 @@ class FakeApi {
   final categories = MockCategoriesApi();
   final members = MockMembersApi();
   final admin = MockAdminApi();
+  final series = MockSeriesApi();
 
   Override get override => libraryApiProvider.overrideWithValue(library);
 }

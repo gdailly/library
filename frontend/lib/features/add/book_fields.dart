@@ -27,6 +27,30 @@ class BookFields extends StatelessWidget {
           textCapitalization: TextCapitalization.sentences,
         ),
         const SizedBox(height: 12),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              flex: 3,
+              child: TextField(
+                controller: draft.series,
+                decoration: const InputDecoration(labelText: 'Série'),
+                textCapitalization: TextCapitalization.sentences,
+                maxLength: 300,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: TextField(
+                controller: draft.seriesNumber,
+                decoration: const InputDecoration(labelText: 'Tome'),
+                keyboardType: TextInputType.number,
+                inputFormatters: digits,
+                maxLength: 4,
+              ),
+            ),
+          ],
+        ),
         TextField(
           controller: draft.authors,
           decoration: const InputDecoration(labelText: 'Auteurs', helperText: 'Séparés par des virgules'),

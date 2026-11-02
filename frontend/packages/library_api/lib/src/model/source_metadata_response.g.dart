@@ -13,6 +13,10 @@ abstract class _$SourceMetadataResponseCWProxy {
 
   SourceMetadataResponse subtitle(String? subtitle);
 
+  SourceMetadataResponse series(String? series);
+
+  SourceMetadataResponse seriesNumber(int? seriesNumber);
+
   SourceMetadataResponse authors(String? authors);
 
   SourceMetadataResponse publisher(String? publisher);
@@ -37,6 +41,8 @@ abstract class _$SourceMetadataResponseCWProxy {
     MetadataSource? source_,
     String title,
     String? subtitle,
+    String? series,
+    int? seriesNumber,
     String? authors,
     String? publisher,
     int? year,
@@ -63,6 +69,13 @@ class _$SourceMetadataResponseCWProxyImpl
 
   @override
   SourceMetadataResponse subtitle(String? subtitle) => this(subtitle: subtitle);
+
+  @override
+  SourceMetadataResponse series(String? series) => this(series: series);
+
+  @override
+  SourceMetadataResponse seriesNumber(int? seriesNumber) =>
+      this(seriesNumber: seriesNumber);
 
   @override
   SourceMetadataResponse authors(String? authors) => this(authors: authors);
@@ -97,6 +110,8 @@ class _$SourceMetadataResponseCWProxyImpl
     Object? source_ = const $CopyWithPlaceholder(),
     Object? title = const $CopyWithPlaceholder(),
     Object? subtitle = const $CopyWithPlaceholder(),
+    Object? series = const $CopyWithPlaceholder(),
+    Object? seriesNumber = const $CopyWithPlaceholder(),
     Object? authors = const $CopyWithPlaceholder(),
     Object? publisher = const $CopyWithPlaceholder(),
     Object? year = const $CopyWithPlaceholder(),
@@ -118,6 +133,14 @@ class _$SourceMetadataResponseCWProxyImpl
           ? _value.subtitle
           // ignore: cast_nullable_to_non_nullable
           : subtitle as String?,
+      series: series == const $CopyWithPlaceholder()
+          ? _value.series
+          // ignore: cast_nullable_to_non_nullable
+          : series as String?,
+      seriesNumber: seriesNumber == const $CopyWithPlaceholder()
+          ? _value.seriesNumber
+          // ignore: cast_nullable_to_non_nullable
+          : seriesNumber as int?,
       authors: authors == const $CopyWithPlaceholder()
           ? _value.authors
           // ignore: cast_nullable_to_non_nullable
@@ -172,6 +195,8 @@ SourceMetadataResponse _$SourceMetadataResponseFromJson(
     ),
     title: $checkedConvert('title', (v) => v as String),
     subtitle: $checkedConvert('subtitle', (v) => v as String?),
+    series: $checkedConvert('series', (v) => v as String?),
+    seriesNumber: $checkedConvert('seriesNumber', (v) => (v as num?)?.toInt()),
     authors: $checkedConvert('authors', (v) => v as String?),
     publisher: $checkedConvert('publisher', (v) => v as String?),
     year: $checkedConvert('year', (v) => (v as num?)?.toInt()),
@@ -189,6 +214,8 @@ Map<String, dynamic> _$SourceMetadataResponseToJson(
   'source': ?_$MetadataSourceEnumMap[instance.source_],
   'title': instance.title,
   'subtitle': ?instance.subtitle,
+  'series': ?instance.series,
+  'seriesNumber': ?instance.seriesNumber,
   'authors': ?instance.authors,
   'publisher': ?instance.publisher,
   'year': ?instance.year,

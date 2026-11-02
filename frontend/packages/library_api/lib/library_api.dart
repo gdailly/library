@@ -15,6 +15,7 @@ export 'package:library_api/src/api/categories_api.dart';
 export 'package:library_api/src/api/lookup_api.dart';
 export 'package:library_api/src/api/me_api.dart';
 export 'package:library_api/src/api/members_api.dart';
+export 'package:library_api/src/api/series_api.dart';
 
 export 'package:library_api/src/model/apply_metadata_request.dart';
 export 'package:library_api/src/model/book_metadata_response.dart';
@@ -42,6 +43,7 @@ export 'package:library_api/src/model/reading_request.dart';
 export 'package:library_api/src/model/reading_response.dart';
 export 'package:library_api/src/model/reading_status.dart';
 export 'package:library_api/src/model/role.dart';
+export 'package:library_api/src/model/series_response.dart';
 export 'package:library_api/src/model/source_metadata_response.dart';
 export 'package:library_api/src/model/sync_mode.dart';
 export 'package:library_api/src/model/sync_outcome.dart';
