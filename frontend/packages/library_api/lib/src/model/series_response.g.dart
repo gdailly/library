@@ -23,6 +23,8 @@ abstract class _$SeriesResponseCWProxy {
 
   SeriesResponse unnumbered(int unnumbered);
 
+  SeriesResponse catalogVolumes(int? catalogVolumes);
+
   SeriesResponse cover(CoverResponse? cover);
 
   /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `SeriesResponse(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
@@ -40,6 +42,7 @@ abstract class _$SeriesResponseCWProxy {
     List<int> missingNumbers,
     int? lastNumber,
     int unnumbered,
+    int? catalogVolumes,
     CoverResponse? cover,
   });
 }
@@ -78,6 +81,10 @@ class _$SeriesResponseCWProxyImpl implements _$SeriesResponseCWProxy {
   SeriesResponse unnumbered(int unnumbered) => this(unnumbered: unnumbered);
 
   @override
+  SeriesResponse catalogVolumes(int? catalogVolumes) =>
+      this(catalogVolumes: catalogVolumes);
+
+  @override
   SeriesResponse cover(CoverResponse? cover) => this(cover: cover);
 
   @override
@@ -96,6 +103,7 @@ class _$SeriesResponseCWProxyImpl implements _$SeriesResponseCWProxy {
     Object? missingNumbers = const $CopyWithPlaceholder(),
     Object? lastNumber = const $CopyWithPlaceholder(),
     Object? unnumbered = const $CopyWithPlaceholder(),
+    Object? catalogVolumes = const $CopyWithPlaceholder(),
     Object? cover = const $CopyWithPlaceholder(),
   }) {
     return SeriesResponse(
@@ -131,6 +139,10 @@ class _$SeriesResponseCWProxyImpl implements _$SeriesResponseCWProxy {
           ? _value.unnumbered
           // ignore: cast_nullable_to_non_nullable
           : unnumbered as int,
+      catalogVolumes: catalogVolumes == const $CopyWithPlaceholder()
+          ? _value.catalogVolumes
+          // ignore: cast_nullable_to_non_nullable
+          : catalogVolumes as int?,
       cover: cover == const $CopyWithPlaceholder()
           ? _value.cover
           // ignore: cast_nullable_to_non_nullable
@@ -181,6 +193,10 @@ SeriesResponse _$SeriesResponseFromJson(Map<String, dynamic> json) =>
         ),
         lastNumber: $checkedConvert('lastNumber', (v) => (v as num?)?.toInt()),
         unnumbered: $checkedConvert('unnumbered', (v) => (v as num).toInt()),
+        catalogVolumes: $checkedConvert(
+          'catalogVolumes',
+          (v) => (v as num?)?.toInt(),
+        ),
         cover: $checkedConvert(
           'cover',
           (v) => v == null
@@ -201,5 +217,6 @@ Map<String, dynamic> _$SeriesResponseToJson(SeriesResponse instance) =>
       'missingNumbers': instance.missingNumbers,
       'lastNumber': ?instance.lastNumber,
       'unnumbered': instance.unnumbered,
+      'catalogVolumes': ?instance.catalogVolumes,
       'cover': ?instance.cover?.toJson(),
     };

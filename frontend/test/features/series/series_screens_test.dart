@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:library_api/library_api.dart';
 import 'package:library_app/features/series/series_detail_screen.dart';
@@ -57,38 +58,40 @@ void main() {
     expect(find.text('Complète jusqu\'au dernier tome connu'), findsOneWidget);
   });
 
-  testWidgets('shows a series volume by volume, with the missing ones', (tester) async {
-    when(() => api.series.listSeriesBooks(name: 'Tintin')).thenAnswer(
-      (_) async => ok([
-        BookResponse(
-          id: 1,
-          title: 'Tintin au Congo',
+  testWidgets('shows every volume, greying and tagging those the library does not own', (tester) async {
+    BookResponse tome(int id, String title, {required bool owned}) => BookResponse(
+          id: id,
+          title: title,
           series: 'Tintin',
-          seriesNumber: 2,
-          owned: true,
+          seriesNumber: id,
+          owned: owned,
           createdAt: DateTime(2026, 10, 1),
           categories: const [],
           otherReadings: const [],
+        );
+    when(() => api.series.getSeriesVolumes(name: 'Tintin')).thenAnswer(
+      (_) async => ok(
+        SeriesDetailResponse(
+          name: 'Tintin',
+          volumes: [
+            SeriesVolumeResponse(number: 1, title: 'Tintin au pays des Soviets', books: const []),
+            SeriesVolumeResponse(number: 2, title: 'Tintin au Congo', books: [tome(2, 'Tintin au Congo', owned: true)]),
+            SeriesVolumeResponse(number: 3, title: 'Tintin en Amérique', books: [tome(3, 'Tintin en Amérique', owned: false)]),
+          ],
+          unnumbered: const [],
+          catalogFetchedAt: DateTime(2026, 11, 3),
         ),
-        BookResponse(
-          id: 2,
-          title: 'Le Lotus bleu',
-          series: 'Tintin',
-          seriesNumber: 4,
-          owned: false,
-          createdAt: DateTime(2026, 10, 1),
-          categories: const [],
-          otherReadings: const [],
-        ),
-      ]),
+      ),
     );
 
     await pumpScreen(tester, const SeriesDetailScreen(name: 'Tintin'), overrides: [api.override]);
 
-    expect(find.text('1 tome sur 4 dans la bibliothèque · manque 1, 3, 4'), findsOneWidget);
-    expect(find.text('Tome 2 · Tintin au Congo'), findsOneWidget);
-    expect(find.text('Tome 4 · Le Lotus bleu'), findsOneWidget);
-    expect(find.text('Dans la liste d\'envies'), findsOneWidget);
-    expect(find.text('Manquant'), findsNWidgets(2));
+    expect(find.text('1 tome sur 3 dans la bibliothèque · manque 1, 3'), findsOneWidget);
+    expect(find.text('Liste des tomes d\'après la BnF.'), findsOneWidget);
+    expect(find.text('Possédé'), findsOneWidget);
+    expect(find.text('Envie'), findsOneWidget);
+    expect(find.text('Manquant'), findsOneWidget);
+    expect(find.text('Tintin au pays des Soviets'), findsWidgets);
+    expect(find.byType(ColorFiltered), findsNWidgets(2));
   });
 }

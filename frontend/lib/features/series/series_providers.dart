@@ -19,8 +19,8 @@ final seriesListProvider = FutureProvider.family<List<SeriesResponse>, String>((
   return response.data!.toList();
 });
 
-/// The books of one series, by volume number.
-final seriesBooksProvider = FutureProvider.autoDispose.family<List<BookResponse>, String>((ref, name) async {
-  final response = await ref.watch(libraryApiProvider).getSeriesApi().listSeriesBooks(name: name);
-  return response.data!.toList();
+/// One series volume by volume, including the volumes the library does not hold.
+final seriesVolumesProvider = FutureProvider.autoDispose.family<SeriesDetailResponse, String>((ref, name) async {
+  final response = await ref.watch(libraryApiProvider).getSeriesApi().getSeriesVolumes(name: name);
+  return response.data!;
 });

@@ -10,7 +10,17 @@ import '../books/book_cover.dart';
 import 'series_labels.dart';
 import 'series_providers.dart';
 
-/// One series, volume by volume: the albums of the library, the wished ones and the missing numbers.
+/// What the library has of a volume.
+enum VolumeState { owned, wished, missing }
+
+VolumeState stateOf(SeriesVolumeResponse volume) {
+  if (volume.books.any((book) => book.owned)) {
+    return VolumeState.owned;
+  }
+  return volume.books.isEmpty ? VolumeState.missing : VolumeState.wished;
+}
+
+/// One series volume by volume: the albums of the library in colour, the others greyed with what the BnF lists.
 class SeriesDetailScreen extends ConsumerWidget {
   const SeriesDetailScreen({super.key, required this.name});
 
@@ -18,69 +28,68 @@ class SeriesDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final books = ref.watch(seriesBooksProvider(name));
+    final detail = ref.watch(seriesVolumesProvider(name));
     return Scaffold(
-      appBar: AppBar(title: Text(name)),
-      body: switch (books) {
+      appBar: AppBar(title: Text(detail.value?.name ?? name)),
+      body: switch (detail) {
         AsyncValue(:final value?) => _content(context, value),
         AsyncValue(:final error?) => Padding(
             padding: const EdgeInsets.all(16),
-            child: MessageBox.error(errorMessage(error), onRetry: () => ref.invalidate(seriesBooksProvider(name))),
+            child: MessageBox.error(errorMessage(error), onRetry: () => ref.invalidate(seriesVolumesProvider(name))),
           ),
         _ => const Center(child: CircularProgressIndicator()),
       },
     );
   }
 
-  Widget _content(BuildContext context, List<BookResponse> books) {
-    final numbered = <int, List<BookResponse>>{};
-    final unnumbered = <BookResponse>[];
-    for (final book in books) {
-      final number = book.seriesNumber;
-      if (number == null || number < 1) {
-        unnumbered.add(book);
-      } else {
-        numbered.putIfAbsent(number, () => []).add(book);
-      }
-    }
-    final last = numbered.keys.fold(0, (a, b) => a > b ? a : b);
-    final shownLast = last > 500 ? numbered.keys.length : last;
-    final volumes = last > 500 ? (numbered.keys.toList()..sort()) : [for (var n = 1; n <= last; n++) n];
-    final owned = volumes.where((n) => numbered[n]?.any((b) => b.owned) ?? false).length;
-    final missing = volumes.where((n) => !(numbered[n]?.any((b) => b.owned) ?? false)).toList();
+  Widget _content(BuildContext context, SeriesDetailResponse detail) {
+    final owned = detail.volumes.where((v) => stateOf(v) == VolumeState.owned).length;
+    final missing = detail.volumes.where((v) => stateOf(v) != VolumeState.owned).map((v) => v.number).toList();
     return Align(
       alignment: Alignment.topCenter,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 900),
+        constraints: const BoxConstraints(maxWidth: 1100),
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
           children: [
-            Text(
-              [
-                if (last > 0) '$owned tome${owned > 1 ? 's' : ''} sur $shownLast dans la bibliothèque',
-                if (missing.isNotEmpty) 'manque ${volumeRanges(missing)}',
-              ].join(' · '),
-              style: const TextStyle(fontSize: 14, color: AppColors.textSecondary),
-            ),
-            if (last > 0)
-              const Padding(
-                padding: EdgeInsets.only(top: 4),
-                child: Text(
-                  'Les tomes après le dernier connu ne sont pas comptés.',
-                  style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                ),
+            if (detail.volumes.isNotEmpty)
+              Text(
+                [
+                  '$owned tome${owned > 1 ? 's' : ''} sur ${detail.volumes.length} dans la bibliothèque',
+                  if (missing.isNotEmpty) 'manque ${volumeRanges(missing)}',
+                ].join(' · '),
+                style: const TextStyle(fontSize: 14, color: AppColors.textSecondary),
               ),
-            const SizedBox(height: 12),
-            for (final number in volumes)
-              if (numbered[number] case final present?)
-                for (final book in present) _VolumeTile(number: number, book: book)
-              else
-                _VolumeTile(number: number),
-            if (unnumbered.isNotEmpty) ...[
-              const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                detail.catalogFetchedAt == null
+                    ? 'La liste complète des tomes est en cours de récupération auprès de la BnF.'
+                    : 'Liste des tomes d\'après la BnF.',
+                style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 12,
+              runSpacing: 16,
+              children: [for (final volume in detail.volumes) VolumeTile(volume: volume)],
+            ),
+            if (detail.unnumbered.isNotEmpty) ...[
+              const SizedBox(height: 24),
               const Text('Sans numéro de tome', style: TextStyle(fontWeight: FontWeight.w600)),
-              const SizedBox(height: 4),
-              for (final book in unnumbered) _VolumeTile(book: book),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 12,
+                runSpacing: 16,
+                children: [
+                  for (final book in detail.unnumbered)
+                    VolumeTile(
+                      volume: SeriesVolumeResponse(number: 0, title: book.title, books: [book]),
+                      showNumber: false,
+                    ),
+                ],
+              ),
             ],
           ],
         ),
@@ -89,48 +98,98 @@ class SeriesDetailScreen extends ConsumerWidget {
   }
 }
 
-class _VolumeTile extends StatelessWidget {
-  const _VolumeTile({this.number, this.book});
+/// A volume's cover with a tag: in colour when owned, greyed otherwise.
+class VolumeTile extends StatelessWidget {
+  const VolumeTile({super.key, required this.volume, this.showNumber = true});
 
-  final int? number;
-  final BookResponse? book;
+  final SeriesVolumeResponse volume;
+  final bool showNumber;
+
+  static const width = 112.0;
 
   @override
   Widget build(BuildContext context) {
-    final book = this.book;
-    final label = number == null ? null : 'Tome $number';
-    if (book == null) {
-      return ListTile(
-        contentPadding: const EdgeInsets.symmetric(vertical: 2),
-        leading: Container(
-          width: 44,
-          height: 66,
-          decoration: BoxDecoration(
-            border: Border.all(color: AppColors.border, width: 1.5),
-            borderRadius: BorderRadius.circular(4),
+    final state = stateOf(volume);
+    final book = volume.books.where((b) => b.owned).firstOrNull ?? volume.books.firstOrNull;
+    final title = volume.title ?? book?.title ?? 'Tome ${volume.number}';
+    final cover = BookCover(
+      title: title,
+      authors: book?.authors,
+      imageUrl: book?.cover?.thumbUrl ?? volume.coverUrl,
+      width: width,
+    );
+    final tile = SizedBox(
+      width: width,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Stack(
+            children: [
+              state == VolumeState.owned
+                  ? cover
+                  : Opacity(opacity: 0.55, child: ColorFiltered(colorFilter: _greyscale, child: cover)),
+              Positioned(left: 6, top: 6, child: _Tag(state: state)),
+            ],
           ),
-          alignment: Alignment.center,
-          child: Text('$number', style: const TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
-        ),
-        title: Text(label!, style: const TextStyle(color: AppColors.textSecondary)),
-        subtitle: const Text('Manquant', style: TextStyle(color: AppColors.error)),
-      );
+          const SizedBox(height: 6),
+          if (showNumber)
+            Text('Tome ${volume.number}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+          Text(
+            title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: state == VolumeState.owned ? AppColors.text : AppColors.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+    if (book == null) {
+      return Semantics(label: '$title, ${_Tag.label(state)}', child: tile);
     }
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(vertical: 2),
-      leading: BookCover(title: book.title, imageUrl: book.cover?.thumbUrl, width: 44, showText: false),
-      title: Text(
-        label == null ? book.title : '$label · ${book.title}',
-        style: const TextStyle(fontWeight: FontWeight.w600),
-      ),
-      subtitle: Text(
-        [if (book.authors != null) book.authors!, if (!book.owned) 'Dans la liste d\'envies'].join('\n'),
-        style: TextStyle(
-          color: AppColors.textSecondary,
-          fontStyle: book.owned ? FontStyle.normal : FontStyle.italic,
-        ),
-      ),
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
       onTap: () => context.push('/books/${book.id}'),
+      child: tile,
+    );
+  }
+
+  static const _greyscale = ColorFilter.matrix([
+    0.2126, 0.7152, 0.0722, 0, 0, //
+    0.2126, 0.7152, 0.0722, 0, 0, //
+    0.2126, 0.7152, 0.0722, 0, 0, //
+    0, 0, 0, 1, 0,
+  ]);
+}
+
+class _Tag extends StatelessWidget {
+  const _Tag({required this.state});
+
+  final VolumeState state;
+
+  static String label(VolumeState state) => switch (state) {
+        VolumeState.owned => 'Possédé',
+        VolumeState.wished => 'Envie',
+        VolumeState.missing => 'Manquant',
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final (background, foreground) = switch (state) {
+      VolumeState.owned => (AppColors.accent, Colors.white),
+      VolumeState.wished => (AppColors.text, Colors.white),
+      VolumeState.missing => (AppColors.errorBackground, AppColors.error),
+    };
+    return DecoratedBox(
+      decoration: BoxDecoration(color: background, borderRadius: BorderRadius.circular(6)),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        child: Text(label(state),
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: foreground)),
+      ),
     );
   }
 }

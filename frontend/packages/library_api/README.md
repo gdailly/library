@@ -93,6 +93,7 @@ Class | Method | HTTP request | Description
 [*MembersApi*](doc/MembersApi.md) | [**inviteMember**](doc/MembersApi.md#invitemember) | **POST** /api/library/members | 
 [*MembersApi*](doc/MembersApi.md) | [**listMembers**](doc/MembersApi.md#listmembers) | **GET** /api/library/members | 
 [*MembersApi*](doc/MembersApi.md) | [**removeMember**](doc/MembersApi.md#removemember) | **DELETE** /api/library/members/{userId} | 
+[*SeriesApi*](doc/SeriesApi.md) | [**getSeriesVolumes**](doc/SeriesApi.md#getseriesvolumes) | **GET** /api/series/volumes | 
 [*SeriesApi*](doc/SeriesApi.md) | [**listSeries**](doc/SeriesApi.md#listseries) | **GET** /api/series | 
 [*SeriesApi*](doc/SeriesApi.md) | [**listSeriesBooks**](doc/SeriesApi.md#listseriesbooks) | **GET** /api/series/books | 
 
@@ -125,7 +126,9 @@ Class | Method | HTTP request | Description
  - [ReadingResponse](doc/ReadingResponse.md)
  - [ReadingStatus](doc/ReadingStatus.md)
  - [Role](doc/Role.md)
+ - [SeriesDetailResponse](doc/SeriesDetailResponse.md)
  - [SeriesResponse](doc/SeriesResponse.md)
+ - [SeriesVolumeResponse](doc/SeriesVolumeResponse.md)
  - [SourceMetadataResponse](doc/SourceMetadataResponse.md)
  - [SyncMode](doc/SyncMode.md)
  - [SyncOutcome](doc/SyncOutcome.md)
