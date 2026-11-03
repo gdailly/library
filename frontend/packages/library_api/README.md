@@ -72,9 +72,12 @@ Class | Method | HTTP request | Description
 [*AdminApi*](doc/AdminApi.md) | [**getBookMetadata**](doc/AdminApi.md#getbookmetadata) | **GET** /api/admin/metadata/books/{id} | 
 [*AdminApi*](doc/AdminApi.md) | [**getMetadataAdmin**](doc/AdminApi.md#getmetadataadmin) | **GET** /api/admin/metadata | 
 [*AdminApi*](doc/AdminApi.md) | [**getMetadataSync**](doc/AdminApi.md#getmetadatasync) | **GET** /api/admin/metadata/sync | 
+[*AdminApi*](doc/AdminApi.md) | [**getSeriesSync**](doc/AdminApi.md#getseriessync) | **GET** /api/admin/series/sync | 
 [*AdminApi*](doc/AdminApi.md) | [**listBookMetadata**](doc/AdminApi.md#listbookmetadata) | **GET** /api/admin/metadata/books | 
 [*AdminApi*](doc/AdminApi.md) | [**startMetadataSync**](doc/AdminApi.md#startmetadatasync) | **POST** /api/admin/metadata/sync | 
+[*AdminApi*](doc/AdminApi.md) | [**startSeriesSync**](doc/AdminApi.md#startseriessync) | **POST** /api/admin/series/sync | 
 [*AdminApi*](doc/AdminApi.md) | [**syncBookMetadata**](doc/AdminApi.md#syncbookmetadata) | **POST** /api/admin/metadata/books/{id}/sync | 
+[*AdminApi*](doc/AdminApi.md) | [**syncOneSeries**](doc/AdminApi.md#synconeseries) | **POST** /api/admin/series/sync-one | 
 [*BooksApi*](doc/BooksApi.md) | [**createBook**](doc/BooksApi.md#createbook) | **POST** /api/books | 
 [*BooksApi*](doc/BooksApi.md) | [**deleteBook**](doc/BooksApi.md#deletebook) | **DELETE** /api/books/{id} | 
 [*BooksApi*](doc/BooksApi.md) | [**deleteCover**](doc/BooksApi.md#deletecover) | **DELETE** /api/books/{id}/cover | 
@@ -128,6 +131,7 @@ Class | Method | HTTP request | Description
  - [Role](doc/Role.md)
  - [SeriesDetailResponse](doc/SeriesDetailResponse.md)
  - [SeriesResponse](doc/SeriesResponse.md)
+ - [SeriesSyncJobResponse](doc/SeriesSyncJobResponse.md)
  - [SeriesVolumeResponse](doc/SeriesVolumeResponse.md)
  - [SourceMetadataResponse](doc/SourceMetadataResponse.md)
  - [SyncMode](doc/SyncMode.md)

@@ -103,6 +103,7 @@ Normaliser l'ISBN en 13 chiffres (convertir les ISBN-10). Ne jamais appeler les 
 | CRUD | `/categories` | Catégories |
 | GET / POST / DELETE | `/library/members` | Membres (OWNER seulement pour écrire) |
 | GET / POST / DELETE | `/admin/metadata`, `/admin/metadata/sync`, `/admin/metadata/books`, `/admin/metadata/books/{id}` (`/sync`, `/apply`), `/admin/metadata/cache` | Administration des métadonnées : comparaison des sources livre par livre, resynchronisation, purge du cache ISBN (administrateur seulement) |
+| GET / POST | `/admin/series/sync`, `/admin/series/sync-one?name=` | Synchronisation forcée des tomes des séries depuis la BnF : toutes les séries en arrière-plan, ou une série immédiatement (administrateur seulement) |
 
 ## Reconnaissance IA (lots 2-3, désactivée par défaut)
 
