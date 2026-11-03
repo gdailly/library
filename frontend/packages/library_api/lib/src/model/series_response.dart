@@ -37,6 +37,8 @@ class SeriesResponse {
 
     required  this.unnumbered,
 
+     this.catalogVolumes,
+
      this.cover,
   });
 
@@ -138,6 +140,18 @@ class SeriesResponse {
 
   @JsonKey(
     
+    name: r'catalogVolumes',
+    required: false,
+    includeIfNull: false,
+  )
+
+
+  final int? catalogVolumes;
+
+
+
+  @JsonKey(
+    
     name: r'cover',
     required: false,
     includeIfNull: false,
@@ -160,6 +174,7 @@ class SeriesResponse {
       other.missingNumbers == missingNumbers &&
       other.lastNumber == lastNumber &&
       other.unnumbered == unnumbered &&
+      other.catalogVolumes == catalogVolumes &&
       other.cover == cover;
 
     @override
@@ -172,6 +187,7 @@ class SeriesResponse {
         missingNumbers.hashCode +
         lastNumber.hashCode +
         unnumbered.hashCode +
+        catalogVolumes.hashCode +
         cover.hashCode;
 
   factory SeriesResponse.fromJson(Map<String, dynamic> json) => _$SeriesResponseFromJson(json);

@@ -72,6 +72,8 @@ Bibliothèque **partagée** : les livres sont communs ; rôles OWNER (invite/ret
 | `category` | id, library_id, name, color |
 | `book_category` | book_id, category_id |
 | `reading` | book_id, user_id, status (TO_READ, READING, READ, ABANDONED), rating (1-5, null), review, started_on, finished_on — unique (book_id, user_id) |
+| `series_catalog` | series_key (PK, nom normalisé), status (FOUND, NOT_FOUND, NO_REFERENCE), source_ref (notice BnF de la série), fetched_at |
+| `series_volume` | series_key, number (PK ensemble), title, isbn13, year — tomes listés par la BnF, communs à toutes les bibliothèques |
 | `isbn_lookup` | isbn13 (PK), source (OPEN_LIBRARY, GOOGLE_BOOKS, BNF, NOT_FOUND), payload (JSON, réponse brute de chaque source), cover_key, fetched_at |
 
 ## Recherche ISBN (cache obligatoire)
@@ -97,7 +99,7 @@ Normaliser l'ISBN en 13 chiffres (convertir les ISBN-10). Ne jamais appeler les 
 | PUT | `/books/{id}/reading` | Mon statut / note / avis |
 | GET | `/lookup/isbn/{isbn}` | Métadonnées (avec cache) |
 | POST | `/lookup/cover`, `/lookup/shelf` | Reconnaissance IA (lots 2-3, 503 si désactivée) |
-| GET | `/series?q=`, `/series/books?name=` | Séries : tomes présents, en envie et manquants ; livres d'une série par tome |
+| GET | `/series?q=`, `/series/volumes?name=`, `/series/books?name=` | Séries : tomes présents, en envie et manquants (y compris ceux listés par la BnF) ; une série tome par tome ; livres d'une série |
 | CRUD | `/categories` | Catégories |
 | GET / POST / DELETE | `/library/members` | Membres (OWNER seulement pour écrire) |
 | GET / POST / DELETE | `/admin/metadata`, `/admin/metadata/sync`, `/admin/metadata/books`, `/admin/metadata/books/{id}` (`/sync`, `/apply`), `/admin/metadata/cache` | Administration des métadonnées : comparaison des sources livre par livre, resynchronisation, purge du cache ISBN (administrateur seulement) |

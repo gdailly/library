@@ -460,6 +460,26 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/SeriesResponse"
+  /api/series/volumes:
+    get:
+      tags:
+      - Series
+      operationId: getSeriesVolumes
+      parameters:
+      - name: name
+        in: query
+        required: true
+        schema:
+          type: string
+          maxLength: 300
+          minLength: 0
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SeriesDetailResponse"
   /api/series/books:
     get:
       tags:
@@ -1051,6 +1071,9 @@ components:
         unnumbered:
           type: integer
           format: int32
+        catalogVolumes:
+          type: integer
+          format: int32
         cover:
           $ref: "#/components/schemas/CoverResponse"
       required:
@@ -1061,6 +1084,48 @@ components:
       - ownedNumbers
       - unnumbered
       - wishedNumbers
+    SeriesDetailResponse:
+      type: object
+      properties:
+        name:
+          type: string
+        volumes:
+          type: array
+          items:
+            $ref: "#/components/schemas/SeriesVolumeResponse"
+        unnumbered:
+          type: array
+          items:
+            $ref: "#/components/schemas/BookResponse"
+        catalogFetchedAt:
+          type: string
+          format: date-time
+      required:
+      - name
+      - unnumbered
+      - volumes
+    SeriesVolumeResponse:
+      type: object
+      properties:
+        number:
+          type: integer
+          format: int32
+        title:
+          type: string
+        isbn13:
+          type: string
+        year:
+          type: integer
+          format: int32
+        coverUrl:
+          type: string
+        books:
+          type: array
+          items:
+            $ref: "#/components/schemas/BookResponse"
+      required:
+      - books
+      - number
     LibrarySummary:
       type: object
       properties:

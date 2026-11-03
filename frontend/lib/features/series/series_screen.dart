@@ -131,6 +131,12 @@ class SeriesCard extends StatelessWidget {
                       ].join(' · '),
                       style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
                     ),
+                    if (series.catalogVolumes == null)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 2),
+                        child: Text('Liste des tomes BnF en cours de récupération',
+                            style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                      ),
                     if (last != null) ...[
                       const SizedBox(height: 8),
                       ClipRRect(

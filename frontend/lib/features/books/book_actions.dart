@@ -55,7 +55,8 @@ class BookActions {
     _ref
       ..invalidate(booksProvider)
       ..invalidate(bookProvider(id))
-      ..invalidate(seriesListProvider);
+      ..invalidate(seriesListProvider)
+      ..invalidate(seriesVolumesProvider);
   }
 }
 

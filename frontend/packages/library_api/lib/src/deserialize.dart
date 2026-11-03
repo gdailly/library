@@ -20,7 +20,9 @@ import 'package:library_api/src/model/page_response_book_metadata_summary.dart';
 import 'package:library_api/src/model/page_response_book_response.dart';
 import 'package:library_api/src/model/reading_request.dart';
 import 'package:library_api/src/model/reading_response.dart';
+import 'package:library_api/src/model/series_detail_response.dart';
 import 'package:library_api/src/model/series_response.dart';
+import 'package:library_api/src/model/series_volume_response.dart';
 import 'package:library_api/src/model/source_metadata_response.dart';
 
 final _regList = RegExp(r'^List<(.*)>$');
@@ -97,8 +99,12 @@ final _regMap = RegExp(r'^Map<String,(.*)>$');
         case 'Role':
           
           
+        case 'SeriesDetailResponse':
+          return SeriesDetailResponse.fromJson(value as Map<String, dynamic>) as ReturnType;
         case 'SeriesResponse':
           return SeriesResponse.fromJson(value as Map<String, dynamic>) as ReturnType;
+        case 'SeriesVolumeResponse':
+          return SeriesVolumeResponse.fromJson(value as Map<String, dynamic>) as ReturnType;
         case 'SourceMetadataResponse':
           return SourceMetadataResponse.fromJson(value as Map<String, dynamic>) as ReturnType;
         case 'SyncMode':

@@ -14,7 +14,10 @@ import com.gdailly.library.dto.CoverResponse;
 import com.gdailly.library.dto.SeriesResponse;
 import com.gdailly.library.entity.Book;
 import com.gdailly.library.entity.Role;
+import com.gdailly.library.entity.SeriesVolume;
 import com.gdailly.library.repository.BookRepository;
+import com.gdailly.library.repository.SeriesCatalogRepository;
+import com.gdailly.library.repository.SeriesVolumeRepository;
 import com.gdailly.library.security.CurrentUser;
 
 class SeriesServiceTest {
@@ -23,7 +26,9 @@ class SeriesServiceTest {
 
     private final BookRepository books = mock(BookRepository.class);
     private final CoverService covers = mock(CoverService.class);
-    private final SeriesService service = new SeriesService(books, covers);
+    private final SeriesVolumeRepository catalog = mock(SeriesVolumeRepository.class);
+    private final SeriesService service = new SeriesService(books, covers, catalog,
+            mock(SeriesCatalogRepository.class), mock(BookService.class));
 
     @Test
     void listsOwnedWishedAndMissingVolumes() {
@@ -68,6 +73,21 @@ class SeriesServiceTest {
 
         assertThat(saga.lastNumber()).isEqualTo(9000);
         assertThat(saga.missingNumbers()).hasSize(SeriesService.MAX_LISTED_NUMBER);
+    }
+
+    @Test
+    void countsTheVolumesListedByTheBnfAsMissing() {
+        when(books.findByLibraryIdAndSeriesIsNotNull(1L)).thenReturn(List.of(book(1, "Tintin", 2, true, null)));
+        when(catalog.findBySeriesKeyInOrderByNumber(List.of("tintin"))).thenReturn(List.of(
+                new SeriesVolume("tintin", 1, "Tintin au pays des Soviets", null, 1930),
+                new SeriesVolume("tintin", 2, "Tintin au Congo", null, 1931),
+                new SeriesVolume("tintin", 4, "Les Cigares du pharaon", null, 1934)));
+
+        SeriesResponse tintin = service.list(USER, null).getFirst();
+
+        assertThat(tintin.lastNumber()).isEqualTo(4);
+        assertThat(tintin.catalogVolumes()).isEqualTo(3);
+        assertThat(tintin.missingNumbers()).containsExactly(1, 3, 4);
     }
 
     private static Book book(long id, String series, Integer number, boolean owned, String coverKey) {
