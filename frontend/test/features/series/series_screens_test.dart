@@ -94,4 +94,24 @@ void main() {
     expect(find.text('Tintin au pays des Soviets'), findsWidgets);
     expect(find.byType(ColorFiltered), findsNWidgets(2));
   });
+
+  testWidgets('lists one series again for the administrator', (tester) async {
+    when(() => api.admin.syncOneSeries(name: 'Tintin')).thenAnswer(
+      (_) async => ok(
+        SeriesDetailResponse(
+          name: 'Tintin',
+          volumes: [SeriesVolumeResponse(number: 1, title: 'Tintin au pays des Soviets', books: const [])],
+          unnumbered: const [],
+          catalogFetchedAt: DateTime(2026, 11, 3),
+        ),
+      ),
+    );
+
+    await pumpScreen(tester, const SyncSeriesButton(name: 'Tintin'), overrides: [api.override]);
+    await tester.tap(find.byTooltip('Resynchroniser la série'));
+    await tester.pumpAndSettle();
+
+    verify(() => api.admin.syncOneSeries(name: 'Tintin')).called(1);
+    expect(find.text('Série resynchronisée : 1 tome connu.'), findsOneWidget);
+  });
 }

@@ -91,6 +91,43 @@ class SeriesControllerIT extends IntegrationTest {
         mvc.perform(get("/api/series").with(googleUser("stranger@example.com"))).andExpect(status().isForbidden());
     }
 
+    @Test
+    void letsTheAdministratorListASeriesAgain() throws Exception {
+        create("{\"title\": \"Sans ISBN\", \"series\": \"Saga Forcée Test\", \"seriesNumber\": 2}");
+
+        mvc.perform(post("/api/admin/series/sync-one").param("name", "saga forcée test").with(owner()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.volumes[*].number").value(contains(1, 2)))
+                .andExpect(jsonPath("$.catalogFetchedAt").exists());
+        // No book of the series has a BnF answer: nothing links to a series record.
+        org.assertj.core.api.Assertions.assertThat(catalogs.findById("saga forcée test").orElseThrow().getStatus())
+                .isEqualTo(SeriesCatalogStatus.NO_REFERENCE);
+
+        mvc.perform(post("/api/admin/series/sync-one").param("name", "inconnue").with(owner()))
+                .andExpect(status().isNotFound());
+
+        mvc.perform(post("/api/admin/series/sync").with(owner()))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.total").isNumber());
+        for (int i = 0; i < 100; i++) {
+            String body = mvc.perform(get("/api/admin/series/sync").with(owner()))
+                    .andReturn().getResponse().getContentAsString();
+            if ("DONE".equals(com.jayway.jsonpath.JsonPath.read(body, "$.state"))) {
+                return;
+            }
+            Thread.sleep(100);
+        }
+        throw new AssertionError("The series listing did not finish");
+    }
+
+    @Test
+    void reservesTheForcedListingToTheAdministrator() throws Exception {
+        var member = member("frank@example.com");
+        mvc.perform(post("/api/admin/series/sync").with(member)).andExpect(status().isForbidden());
+        mvc.perform(get("/api/admin/series/sync").with(member)).andExpect(status().isForbidden());
+        mvc.perform(post("/api/admin/series/sync-one").param("name", "x").with(member)).andExpect(status().isForbidden());
+    }
+
     private void create(String body) throws Exception {
         mvc.perform(post("/api/books").with(owner()).contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isCreated());

@@ -6,6 +6,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../core/api.dart';
 import '../../core/theme.dart';
 import '../../shared/message_box.dart';
+import '../auth/auth_controller.dart';
 import '../books/book_cover.dart';
 import 'series_labels.dart';
 import 'series_providers.dart';
@@ -29,8 +30,13 @@ class SeriesDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final detail = ref.watch(seriesVolumesProvider(name));
+    final auth = ref.watch(authControllerProvider);
+    final isAdmin = auth is AuthSignedIn && auth.me.admin;
     return Scaffold(
-      appBar: AppBar(title: Text(detail.value?.name ?? name)),
+      appBar: AppBar(
+        title: Text(detail.value?.name ?? name),
+        actions: [if (isAdmin && detail.hasValue) SyncSeriesButton(name: name)],
+      ),
       body: switch (detail) {
         AsyncValue(:final value?) => _content(context, value),
         AsyncValue(:final error?) => Padding(
@@ -99,6 +105,51 @@ class SeriesDetailScreen extends ConsumerWidget {
 }
 
 /// A volume's cover with a tag: in colour when owned, greyed otherwise.
+/// Lists the volumes of the series again from the BnF now (the administrator only).
+class SyncSeriesButton extends ConsumerStatefulWidget {
+  const SyncSeriesButton({super.key, required this.name});
+
+  final String name;
+
+  @override
+  ConsumerState<SyncSeriesButton> createState() => _SyncSeriesButtonState();
+}
+
+class _SyncSeriesButtonState extends ConsumerState<SyncSeriesButton> {
+  bool _busy = false;
+
+  Future<void> _sync() async {
+    setState(() => _busy = true);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final detail = (await ref.read(libraryApiProvider).getAdminApi().syncOneSeries(name: widget.name)).data!;
+      ref
+        ..invalidate(seriesVolumesProvider(widget.name))
+        ..invalidate(seriesListProvider);
+      messenger.showSnackBar(SnackBar(
+        content: Text('Série resynchronisée : ${detail.volumes.length} tome${detail.volumes.length > 1 ? 's' : ''} connu${detail.volumes.length > 1 ? 's' : ''}.'),
+      ));
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(errorMessage(e))));
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      tooltip: 'Resynchroniser la série',
+      onPressed: _busy ? null : _sync,
+      icon: _busy
+          ? const SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2))
+          : const Icon(Icons.sync),
+    );
+  }
+}
+
 class VolumeTile extends StatelessWidget {
   const VolumeTile({super.key, required this.volume, this.showNumber = true});
 

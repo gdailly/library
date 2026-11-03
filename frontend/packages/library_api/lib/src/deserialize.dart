@@ -22,6 +22,7 @@ import 'package:library_api/src/model/reading_request.dart';
 import 'package:library_api/src/model/reading_response.dart';
 import 'package:library_api/src/model/series_detail_response.dart';
 import 'package:library_api/src/model/series_response.dart';
+import 'package:library_api/src/model/series_sync_job_response.dart';
 import 'package:library_api/src/model/series_volume_response.dart';
 import 'package:library_api/src/model/source_metadata_response.dart';
 
@@ -103,6 +104,8 @@ final _regMap = RegExp(r'^Map<String,(.*)>$');
           return SeriesDetailResponse.fromJson(value as Map<String, dynamic>) as ReturnType;
         case 'SeriesResponse':
           return SeriesResponse.fromJson(value as Map<String, dynamic>) as ReturnType;
+        case 'SeriesSyncJobResponse':
+          return SeriesSyncJobResponse.fromJson(value as Map<String, dynamic>) as ReturnType;
         case 'SeriesVolumeResponse':
           return SeriesVolumeResponse.fromJson(value as Map<String, dynamic>) as ReturnType;
         case 'SourceMetadataResponse':

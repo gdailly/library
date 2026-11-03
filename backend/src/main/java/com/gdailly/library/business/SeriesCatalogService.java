@@ -75,10 +75,7 @@ public class SeriesCatalogService {
     /** Lists the series never listed or listed too long ago, a few at a time. */
     @Scheduled(initialDelayString = "${livre.series.initial-delay:PT2M}", fixedDelayString = "${livre.series.refresh-delay:PT1H}")
     public void refreshStale() {
-        Map<String, List<Book>> bySeries = books.findAllWithSeries().stream()
-                .filter(book -> !SeriesService.key(book.getSeries()).isEmpty())
-                .collect(Collectors.groupingBy(book -> SeriesService.key(book.getSeries()), LinkedHashMap::new,
-                        Collectors.toList()));
+        Map<String, List<Book>> bySeries = seriesBooks();
         Map<String, SeriesCatalog> known = catalogs.findAllById(bySeries.keySet()).stream()
                 .collect(Collectors.toMap(SeriesCatalog::getSeriesKey, c -> c));
         Instant now = clock.instant();
@@ -106,6 +103,14 @@ public class SeriesCatalogService {
         }
     }
 
+    /** The books of every library that belong to a series, by series key. */
+    Map<String, List<Book>> seriesBooks() {
+        return books.findAllWithSeries().stream()
+                .filter(book -> !SeriesService.key(book.getSeries()).isEmpty())
+                .collect(Collectors.groupingBy(book -> SeriesService.key(book.getSeries()), LinkedHashMap::new,
+                        Collectors.toList()));
+    }
+
     static boolean isDue(SeriesCatalog catalog, Instant now) {
         if (catalog == null) {
             return true;
@@ -114,8 +119,11 @@ public class SeriesCatalogService {
         return catalog.getFetchedAt().plus(age).isBefore(now);
     }
 
-    /** Lists the volumes of one series and replaces what was known of it. */
-    void refresh(String key, List<Book> members) {
+    /**
+     * Lists the volumes of one series and replaces what was known of it. One series at a time, so that the scheduled
+     * run and a refresh forced by the administrator do not write the same series together.
+     */
+    synchronized SeriesCatalogStatus refresh(String key, List<Book> members) {
         Optional<String> ref = seriesRef(members);
         List<BnfClient.SeriesVolume> found = ref.map(bnf::fetchSeriesVolumes).orElse(List.of());
         List<SeriesVolume> chosen = choose(key, found);
@@ -133,6 +141,7 @@ public class SeriesCatalogService {
             volumes.flush();
             volumes.saveAll(chosen);
         });
+        return status;
     }
 
     /** The BnF series record linked by the cached answer of a volume of the series. */

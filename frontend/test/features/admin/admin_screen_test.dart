@@ -26,6 +26,16 @@ MetadataAdminResponse overview({MetadataSyncJobResponse? syncJob, int notFound =
       job: syncJob ?? job(SyncState.IDLE),
     );
 
+SeriesSyncJobResponse seriesJob(SyncState state, {int total = 0, int found = 0, int notFound = 0}) =>
+    SeriesSyncJobResponse(
+      state: state,
+      total: total,
+      processed: found + notFound,
+      found: found,
+      notFound: notFound,
+      failed: 0,
+    );
+
 void main() {
   late FakeApi api;
 
@@ -34,6 +44,7 @@ void main() {
   setUp(() {
     api = FakeApi();
     when(() => api.admin.getMetadataAdmin()).thenAnswer((_) async => ok(overview()));
+    when(() => api.admin.getSeriesSync()).thenAnswer((_) async => ok(seriesJob(SyncState.IDLE)));
   });
 
   Future<void> pumpAdmin(WidgetTester tester) async {
@@ -73,6 +84,24 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Terminé : 110 livres traités'), findsOneWidget);
     expect(find.text('30 complétés · 78 inchangés · 2 introuvables'), findsOneWidget);
+  });
+
+  testWidgets('lists again the volumes of every series', (tester) async {
+    when(() => api.admin.startSeriesSync()).thenAnswer((_) async => ok(seriesJob(SyncState.RUNNING, total: 12)));
+    when(() => api.admin.getSeriesSync())
+        .thenAnswer((_) async => ok(seriesJob(SyncState.DONE, total: 12, found: 9, notFound: 3)));
+    await pumpAdmin(tester);
+
+    await tester.ensureVisible(find.text('Synchroniser toutes les séries'));
+    await tester.tap(find.text('Synchroniser toutes les séries'));
+    await tester.pump();
+    expect(find.text('0 / 12 séries traitées'), findsOneWidget);
+    expect(find.text('Synchronisation en cours…'), findsOneWidget);
+
+    await tester.pump(const Duration(milliseconds: 15));
+    await tester.pumpAndSettle();
+    expect(find.text('Terminé : 12 séries traitées'), findsOneWidget);
+    expect(find.text('9 trouvées à la BnF · 3 sans liste'), findsOneWidget);
   });
 
   testWidgets('forgets the ISBN remembered as not found', (tester) async {

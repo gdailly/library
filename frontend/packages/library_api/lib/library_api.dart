@@ -45,6 +45,7 @@ export 'package:library_api/src/model/reading_status.dart';
 export 'package:library_api/src/model/role.dart';
 export 'package:library_api/src/model/series_detail_response.dart';
 export 'package:library_api/src/model/series_response.dart';
+export 'package:library_api/src/model/series_sync_job_response.dart';
 export 'package:library_api/src/model/series_volume_response.dart';
 export 'package:library_api/src/model/source_metadata_response.dart';
 export 'package:library_api/src/model/sync_mode.dart';

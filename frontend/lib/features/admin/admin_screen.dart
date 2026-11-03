@@ -9,6 +9,7 @@ import '../../core/api.dart';
 import '../../core/theme.dart';
 import '../../shared/message_box.dart';
 import '../books/books_providers.dart';
+import 'series_sync_card.dart';
 
 /// Overview of the metadata administration: books, ISBN cache and the full resynchronisation.
 final metadataAdminProvider = FutureProvider.autoDispose<MetadataAdminResponse>((ref) async {
@@ -218,6 +219,11 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
                   ],
                 ),
               ],
+            ),
+            const SizedBox(height: 16),
+            _AdminCard(
+              title: 'Tomes des séries',
+              children: [SeriesSyncCard(pollInterval: widget.pollInterval)],
             ),
             const SizedBox(height: 16),
             _AdminCard(

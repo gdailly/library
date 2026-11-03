@@ -46,6 +46,7 @@ lib/src/model/reading_status.dart
 lib/src/model/role.dart
 lib/src/model/series_detail_response.dart
 lib/src/model/series_response.dart
+lib/src/model/series_sync_job_response.dart
 lib/src/model/series_volume_response.dart
 lib/src/model/source_metadata_response.dart
 lib/src/model/sync_mode.dart
