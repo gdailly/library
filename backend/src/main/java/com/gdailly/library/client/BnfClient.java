@@ -46,6 +46,10 @@ public class BnfClient implements MetadataClient {
             Map.entry("geo", "ka"), Map.entry("ice", "is"), Map.entry("mac", "mk"), Map.entry("mao", "mi"),
             Map.entry("may", "ms"), Map.entry("alb", "sq"), Map.entry("slo", "sk"), Map.entry("tib", "bo"));
 
+    /** Records read per request when listing a series, and at most in all. */
+    static final int SERIES_PAGE = 100;
+    static final int MAX_SERIES_RECORDS = 500;
+
     private final RestClient http;
 
     BnfClient(LivreProperties properties) {
@@ -68,6 +72,110 @@ public class BnfClient implements MetadataClient {
                 .body(byte[].class);
         String body = bytes == null ? null : new String(bytes, StandardCharsets.UTF_8);
         return parse(isbn13, body).isPresent() ? Optional.of(body) : Optional.empty();
+    }
+
+    /**
+     * Books of a series, from the identifier of its BnF record (zone 461 $0 of a volume): multivolume sets (ensembles)
+     * first, else editorial collections. Several printings of a volume can be listed. Throws on network errors.
+     */
+    public List<SeriesVolume> fetchSeriesVolumes(String seriesRef) {
+        List<SeriesVolume> volumes = fetchLinked("bib.ens2bib", seriesRef);
+        return volumes.isEmpty() ? fetchLinked("bib.col2bib", seriesRef) : volumes;
+    }
+
+    private List<SeriesVolume> fetchLinked(String index, String seriesRef) {
+        List<SeriesVolume> volumes = new ArrayList<>();
+        for (int start = 1; start <= MAX_SERIES_RECORDS; start += SERIES_PAGE) {
+            int first = start;
+            byte[] bytes = http.get()
+                    .uri(uri -> uri.path("/api/SRU")
+                            .queryParam("version", "1.2")
+                            .queryParam("operation", "searchRetrieve")
+                            .queryParam("recordSchema", "unimarcxchange")
+                            .queryParam("maximumRecords", String.valueOf(SERIES_PAGE))
+                            .queryParam("startRecord", String.valueOf(first))
+                            .queryParam("query", "{query}")
+                            .build(index + " all \"" + seriesRef + "\""))
+                    .accept(MediaType.APPLICATION_XML, MediaType.TEXT_XML)
+                    .retrieve()
+                    .body(byte[].class);
+            List<SeriesVolume> page = bytes == null ? List.of()
+                    : parseSeriesVolumes(new String(bytes, StandardCharsets.UTF_8), seriesRef);
+            volumes.addAll(page);
+            if (records(bytes) < SERIES_PAGE) {
+                break;
+            }
+        }
+        return volumes;
+    }
+
+    private static int records(byte[] bytes) {
+        if (bytes == null) {
+            return 0;
+        }
+        return unimarcRecords(read(new String(bytes, StandardCharsets.UTF_8))).size();
+    }
+
+    /** One book of a series: its volume number (null when the record gives none), title, ISBN and year. */
+    public record SeriesVolume(Integer number, String title, String isbn13, Integer year) {
+    }
+
+    /** The volumes listed in an SRU answer; {@code seriesRef} picks the right 461 field when a book is in several. */
+    static List<SeriesVolume> parseSeriesVolumes(String payload, String seriesRef) {
+        List<SeriesVolume> volumes = new ArrayList<>();
+        for (Element element : unimarcRecords(read(payload))) {
+            Unimarc record = new Unimarc(element);
+            String title = record.first("200", "a");
+            if (title == null) {
+                continue;
+            }
+            String publication = record.has("210") ? "210" : "214";
+            String isbn = record.first("010", "a");
+            volumes.add(new SeriesVolume(
+                    volumeNumber(record, seriesRef),
+                    title,
+                    isbn == null ? null : Isbn.toIsbn13(isbn).orElse(null),
+                    BookMetadata.parseYear(record.first(publication, "d"))));
+        }
+        return volumes;
+    }
+
+    private static Integer volumeNumber(Unimarc record, String seriesRef) {
+        for (Element field : record.fields("461")) {
+            if (seriesRef.equals(Unimarc.subfield(field, "0"))) {
+                return BookMetadata.parseSeriesNumber(Unimarc.subfield(field, "v"));
+            }
+        }
+        return BookMetadata.parseSeriesNumber(record.first("225", "v"));
+    }
+
+    /** Identifier of the series record a book belongs to (zone 461 $0), from a cached BnF answer; null if none. */
+    public static String seriesRef(String payload) {
+        if (payload == null || payload.isBlank()) {
+            return null;
+        }
+        for (Element element : unimarcRecords(read(payload))) {
+            String ref = new Unimarc(element).first("461", "0");
+            if (ref != null && ref.matches("\\d{6,12}")) {
+                return ref;
+            }
+        }
+        return null;
+    }
+
+    /** The UNIMARC records of an SRU answer (the envelope also has {@code <srw:record>} elements). */
+    private static List<Element> unimarcRecords(Document document) {
+        List<Element> records = new ArrayList<>();
+        NodeList nodes = document.getElementsByTagNameNS(ANY_NAMESPACE, "record");
+        for (int i = 0; i < nodes.getLength(); i++) {
+            Element record = (Element) nodes.item(i);
+            // The innermost record: <srw:record> wraps the UNIMARC <record> holding the datafields.
+            if (record.getElementsByTagNameNS(ANY_NAMESPACE, "datafield").getLength() > 0
+                    && record.getElementsByTagNameNS(ANY_NAMESPACE, "record").getLength() == 0) {
+                records.add(record);
+            }
+        }
+        return records;
     }
 
     static String query(String isbn13) {

@@ -35,7 +35,8 @@ import com.jayway.jsonpath.JsonPath;
 /** Full application against a MariaDB container; requests are authenticated with mock Google ID tokens. */
 @SpringBootTest(properties = {
         "livre.bootstrap.owner-email=" + IntegrationTest.OWNER_EMAIL,
-        "livre.covers.url-secret=integration-test-secret"})
+        "livre.covers.url-secret=integration-test-secret",
+        "livre.series.refresh-enabled=false"})
 @AutoConfigureMockMvc
 @Import(TestcontainersConfiguration.class)
 public abstract class IntegrationTest {

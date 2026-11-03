@@ -28,6 +28,10 @@ public interface BookRepository extends JpaRepository<Book, Long>, JpaSpecificat
 
     List<Book> findByLibraryIdAndIsbn13IsNotNull(Long libraryId, Sort sort);
 
+    /** Books of every library that belong to a series, for listing the volumes of the series. */
+    @Query("select b from Book b where b.series is not null")
+    List<Book> findAllWithSeries();
+
     /** Books that belong to a series, for the series view. */
     List<Book> findByLibraryIdAndSeriesIsNotNull(Long libraryId);
 }

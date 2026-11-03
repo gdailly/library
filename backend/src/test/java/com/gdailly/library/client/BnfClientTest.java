@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
@@ -91,6 +92,38 @@ class BnfClientTest {
 
         assertThat(book.series()).isEqualTo("Une aventure d'Astérix");
         assertThat(book.seriesNumber()).isEqualTo(40);
+    }
+
+    @Test
+    void listsTheVolumesOfASeriesWithTheirNumberInThatSeries() {
+        List<BnfClient.SeriesVolume> volumes = BnfClient.parseSeriesVolumes("""
+                <srw:searchRetrieveResponse xmlns:srw="http://www.loc.gov/zing/srw/" xmlns:m="info:lc/xmlns/marcxchange-v2">
+                <srw:records><srw:record><srw:recordData><m:record>
+                <m:datafield tag="010"><m:subfield code="a">2-01-210140-2</m:subfield></m:datafield>
+                <m:datafield tag="200"><m:subfield code="a">Astérix chez les Bretons</m:subfield></m:datafield>
+                <m:datafield tag="214"><m:subfield code="d">2004</m:subfield></m:datafield>
+                <m:datafield tag="461"><m:subfield code="0">11111111</m:subfield><m:subfield code="v">99</m:subfield></m:datafield>
+                <m:datafield tag="461"><m:subfield code="0">43388366</m:subfield><m:subfield code="v">8</m:subfield></m:datafield>
+                </m:record></srw:recordData></srw:record>
+                <srw:record><srw:recordData><m:record>
+                <m:datafield tag="200"><m:subfield code="a">Le devin</m:subfield></m:datafield>
+                </m:record></srw:recordData></srw:record></srw:records></srw:searchRetrieveResponse>
+                """, "43388366");
+
+        assertThat(volumes).containsExactly(
+                new BnfClient.SeriesVolume(8, "Astérix chez les Bretons", "9782012101401", 2004),
+                new BnfClient.SeriesVolume(null, "Le devin", null, null));
+    }
+
+    @Test
+    void readsTheSeriesRecordOfABook() {
+        assertThat(BnfClient.seriesRef("""
+                <r xmlns:m="info:lc/xmlns/marcxchange-v2"><m:record>
+                <m:datafield tag="200"><m:subfield code="a">Astérix et les Goths</m:subfield></m:datafield>
+                <m:datafield tag="461"><m:subfield code="0">43388366</m:subfield><m:subfield code="v">3</m:subfield></m:datafield>
+                </m:record></r>
+                """)).isEqualTo("43388366");
+        assertThat(BnfClient.seriesRef(null)).isNull();
     }
 
     @Test
