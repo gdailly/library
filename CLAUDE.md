@@ -68,12 +68,13 @@ Bibliothèque **partagée** : les livres sont communs ; rôles OWNER (invite/ret
 | `app_user` | id, email (unique), name, avatar_url, created_at |
 | `library` | id, name |
 | `library_member` | library_id, user_id, role (OWNER, MEMBER) |
-| `book` | id, library_id, isbn13, title, subtitle, series, series_number (tome), authors (texte), publisher, year, pages, language, cover_key, summary, owned (bool : false = liste d'envies), added_by, created_at |
+| `book` | id, isbn13 (unique), title, subtitle, authors (texte), publisher, year, pages, language, cover_key, summary, created_at — le livre lui-même (résultat du lookup), commun à toutes les bibliothèques |
+| `library_book` | id, library_id, book_id (unique ensemble), owned (bool : false = liste d'envies), added_by, created_at |
 | `category` | id, library_id, name, color |
-| `book_category` | book_id, category_id |
+| `library_book_category` | library_book_id, category_id |
 | `reading` | book_id, user_id, status (TO_READ, READING, READ, ABANDONED), rating (1-5, null), review, started_on, finished_on — unique (book_id, user_id) |
-| `series_catalog` | series_key (PK, nom normalisé), status (FOUND, NOT_FOUND, NO_REFERENCE), source_ref (notice BnF de la série), fetched_at |
-| `series_volume` | series_key, number (PK ensemble), title, isbn13, year — tomes listés par la BnF, communs à toutes les bibliothèques |
+| `series` | id, name, name_key (unique, nom normalisé), status (FOUND, NOT_FOUND, NO_REFERENCE, null si jamais listée), source_ref (notice BnF de la série), fetched_at |
+| `book_series` | book_id, series_id (PK ensemble), number (tome) — les tomes listés par la BnF sont des livres sans bibliothèque |
 | `sync_run` | id, kind (METADATA_FILL, METADATA_FETCH, METADATA_BOOK, SERIES_ALL, SERIES_SCHEDULED, SERIES_ONE), library_id, started_by, state (RUNNING, DONE, INTERRUPTED), total, processed, succeeded, unchanged, not_found, failed, started_at, finished_at — historique purgé après 30 jours |
 | `sync_run_item` | id, run_id, label (livre ou série), outcome, detail, created_at |
 | `isbn_lookup` | isbn13 (PK), source (OPEN_LIBRARY, GOOGLE_BOOKS, BNF, NOT_FOUND), payload (JSON, réponse brute de chaque source), cover_key, fetched_at |

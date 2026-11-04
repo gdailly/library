@@ -30,13 +30,15 @@ import com.gdailly.library.dto.SyncMode;
 import com.gdailly.library.dto.SyncOutcome;
 import com.gdailly.library.dto.SyncState;
 import com.gdailly.library.entity.Book;
+import com.gdailly.library.entity.LibraryBook;
 import com.gdailly.library.entity.LookupSource;
 import com.gdailly.library.entity.Role;
 import com.gdailly.library.exception.BadRequestException;
 import com.gdailly.library.exception.ConflictException;
 import com.gdailly.library.exception.ForbiddenException;
 import com.gdailly.library.exception.ServiceUnavailableException;
-import com.gdailly.library.repository.BookRepository;
+import com.gdailly.library.repository.LibraryBookRepository;
+import com.gdailly.library.repository.SeriesRepository;
 import com.gdailly.library.repository.IsbnLookupRepository;
 import com.gdailly.library.security.CurrentUser;
 
@@ -48,13 +50,13 @@ class MetadataSyncServiceTest {
     private static final BookMetadata FOUND = new BookMetadata("L'Étranger", null, "Albert Camus", "Gallimard", 1971,
             191, "fr", "Aujourd'hui, maman est morte.", "https://books.google.com/1");
 
-    private final BookRepository books = mock(BookRepository.class);
+    private final LibraryBookRepository books = mock(LibraryBookRepository.class);
     private final IsbnLookupRepository isbnCache = mock(IsbnLookupRepository.class);
     private final IsbnLookupService lookups = mock(IsbnLookupService.class);
     private final CoverService covers = mock(CoverService.class);
     private final BookService bookService = mock(BookService.class);
     private final SyncHistoryService history = mock(SyncHistoryService.class);
-    private final MetadataSyncService service = new MetadataSyncService(books, isbnCache, lookups, covers, bookService, history,
+    private final MetadataSyncService service = new MetadataSyncService(books, new SeriesRegistry(mock(SeriesRepository.class)), isbnCache, lookups, covers, bookService, history,
             mock(PlatformTransactionManager.class), Clock.fixed(Instant.parse("2026-11-01T20:00:00Z"), ZoneOffset.UTC),
             new LivreProperties(null, null, null,
                     new LivreProperties.Isbn(null, null, null, null, null, null, null, Duration.ZERO), null));
@@ -94,7 +96,7 @@ class MetadataSyncServiceTest {
     @Test
     void syncsOneBookAndDownloadsMissingCover() {
         Book book = book("Brouillon", null);
-        when(books.findByIdAndLibraryId(5L, 1L)).thenReturn(Optional.of(book));
+        when(books.findByLibraryIdAndBookId(1L, 5L)).thenReturn(Optional.of(held(book)));
         when(lookups.refresh(ISBN, MetadataSyncService.REUSE_RECENT_LOOKUPS)).thenReturn(merged());
         when(covers.importFromIsbn(ISBN)).thenReturn(Optional.of("k".repeat(64)));
 
@@ -107,7 +109,7 @@ class MetadataSyncServiceTest {
 
     @Test
     void keepsExistingCoverWhenFilling() {
-        when(books.findByIdAndLibraryId(5L, 1L)).thenReturn(Optional.of(book("Brouillon", "c".repeat(64))));
+        when(books.findByLibraryIdAndBookId(1L, 5L)).thenReturn(Optional.of(held(book("Brouillon", "c".repeat(64)))));
         when(lookups.refresh(anyString(), any())).thenReturn(merged());
 
         service.syncBook(ADMIN, 5L, SyncMode.FILL, null);
@@ -117,7 +119,7 @@ class MetadataSyncServiceTest {
 
     @Test
     void reportsIsbnUnknownToEverySource() {
-        when(books.findByIdAndLibraryId(5L, 1L)).thenReturn(Optional.of(book("Brouillon", null)));
+        when(books.findByLibraryIdAndBookId(1L, 5L)).thenReturn(Optional.of(held(book("Brouillon", null))));
         when(lookups.refresh(anyString(), any())).thenReturn(Optional.empty());
 
         assertThat(service.syncBook(ADMIN, 5L, SyncMode.REPLACE, null).outcome()).isEqualTo(SyncOutcome.NOT_FOUND);
@@ -126,7 +128,7 @@ class MetadataSyncServiceTest {
     @Test
     void fetchOnlyRefreshesTheSources() {
         Book book = book("Brouillon", null);
-        when(books.findByIdAndLibraryId(5L, 1L)).thenReturn(Optional.of(book));
+        when(books.findByLibraryIdAndBookId(1L, 5L)).thenReturn(Optional.of(held(book)));
         when(lookups.refresh(anyString(), any())).thenReturn(merged());
 
         assertThat(service.syncBook(ADMIN, 5L, SyncMode.FETCH, null).changedFields()).isEmpty();
@@ -137,7 +139,7 @@ class MetadataSyncServiceTest {
     @Test
     void usesOnlyTheChosenSource() {
         Book book = book("Brouillon", null);
-        when(books.findByIdAndLibraryId(5L, 1L)).thenReturn(Optional.of(book));
+        when(books.findByLibraryIdAndBookId(1L, 5L)).thenReturn(Optional.of(held(book)));
         when(lookups.refreshSource(ISBN, LookupSource.GOOGLE_BOOKS)).thenReturn(Optional.of(FOUND));
         when(covers.importFromUrl(FOUND.coverUrl())).thenReturn(Optional.of("g".repeat(64)));
 
@@ -155,9 +157,9 @@ class MetadataSyncServiceTest {
 
     @Test
     void refusesBookWithoutIsbn() {
-        Book book = new Book(1L, 7L);
+        Book book = new Book();
         book.setTitle("Manuscrit");
-        when(books.findByIdAndLibraryId(5L, 1L)).thenReturn(Optional.of(book));
+        when(books.findByLibraryIdAndBookId(1L, 5L)).thenReturn(Optional.of(held(book)));
 
         assertThatThrownBy(() -> service.syncBook(ADMIN, 5L, SyncMode.FILL, null)).isInstanceOf(BadRequestException.class);
     }
@@ -183,10 +185,10 @@ class MetadataSyncServiceTest {
     @Test
     void resynchronisesTheWholeLibraryInTheBackground() throws InterruptedException {
         assertThat(service.status(ADMIN).state()).isEqualTo(SyncState.IDLE);
-        when(books.findIdsWithIsbn(1L)).thenReturn(List.of(1L, 2L, 3L));
-        when(books.findByIdAndLibraryId(1L, 1L)).thenReturn(Optional.of(book("Brouillon", null)));
-        when(books.findByIdAndLibraryId(2L, 1L)).thenReturn(Optional.of(book("Autre", "c".repeat(64))));
-        when(books.findByIdAndLibraryId(3L, 1L)).thenReturn(Optional.of(book("Inconnu", null)));
+        when(books.findBookIdsWithIsbn(1L)).thenReturn(List.of(1L, 2L, 3L));
+        when(books.findByLibraryIdAndBookId(1L, 1L)).thenReturn(Optional.of(held(book("Brouillon", null))));
+        when(books.findByLibraryIdAndBookId(1L, 2L)).thenReturn(Optional.of(held(book("Autre", "c".repeat(64)))));
+        when(books.findByLibraryIdAndBookId(1L, 3L)).thenReturn(Optional.of(held(book("Inconnu", null))));
         when(lookups.refresh(ISBN, MetadataSyncService.REUSE_RECENT_LOOKUPS))
                 .thenReturn(merged())
                 .thenReturn(Optional.empty())
@@ -206,10 +208,10 @@ class MetadataSyncServiceTest {
 
     @Test
     void runsOneFullResynchronisationAtATime() {
-        when(books.findIdsWithIsbn(1L)).thenReturn(List.of(1L));
-        when(books.findByIdAndLibraryId(1L, 1L)).thenAnswer(invocation -> {
+        when(books.findBookIdsWithIsbn(1L)).thenReturn(List.of(1L));
+        when(books.findByLibraryIdAndBookId(1L, 1L)).thenAnswer(invocation -> {
             Thread.sleep(500);
-            return Optional.of(book("Lent", null));
+            return Optional.of(held(book("Lent", null)));
         });
 
         service.startSyncAll(ADMIN, SyncMode.FILL);
@@ -232,8 +234,12 @@ class MetadataSyncServiceTest {
         return Optional.of(new MetadataMerger.Merged(LookupSource.BNF, FOUND, List.of(FOUND.coverUrl())));
     }
 
+    private static LibraryBook held(Book book) {
+        return new LibraryBook(1L, book, 7L);
+    }
+
     private static Book book(String title, String coverKey) {
-        Book book = new Book(1L, 7L);
+        Book book = new Book();
         book.setIsbn13(ISBN);
         book.setTitle(title);
         book.setCoverKey(coverKey);

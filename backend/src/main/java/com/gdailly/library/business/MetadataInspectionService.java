@@ -25,6 +25,7 @@ import com.gdailly.library.dto.PageResponse;
 import com.gdailly.library.dto.SourceMetadataResponse;
 import com.gdailly.library.dto.SyncMode;
 import com.gdailly.library.entity.Book;
+import com.gdailly.library.entity.LibraryBook;
 import com.gdailly.library.entity.IsbnLookup;
 import com.gdailly.library.entity.LookupSource;
 import com.gdailly.library.exception.BadRequestException;
@@ -32,7 +33,7 @@ import com.gdailly.library.exception.ConflictException;
 import com.gdailly.library.exception.NotFoundException;
 import com.gdailly.library.exception.ServiceUnavailableException;
 import com.gdailly.library.mapper.IsbnLookupMapper;
-import com.gdailly.library.repository.BookRepository;
+import com.gdailly.library.repository.LibraryBookRepository;
 import com.gdailly.library.repository.IsbnLookupRepository;
 import com.gdailly.library.security.CurrentUser;
 import com.gdailly.library.util.Strings;
@@ -55,7 +56,7 @@ public class MetadataInspectionService {
     private static final List<Field> COMPARED = List.of(
             new Field("title", Book::getTitle, BookMetadata::title),
             new Field("subtitle", Book::getSubtitle, BookMetadata::subtitle),
-            new Field("series", Book::getSeries, BookMetadata::series),
+            new Field("series", Book::getSeriesName, BookMetadata::series),
             new Field("seriesNumber", Book::getSeriesNumber, BookMetadata::seriesNumber),
             new Field("authors", Book::getAuthors, BookMetadata::authors),
             new Field("publisher", Book::getPublisher, BookMetadata::publisher),
@@ -64,7 +65,8 @@ public class MetadataInspectionService {
             new Field("language", Book::getLanguage, BookMetadata::language),
             new Field("summary", Book::getSummary, BookMetadata::summary));
 
-    private final BookRepository books;
+    private final LibraryBookRepository books;
+    private final SeriesRegistry seriesRegistry;
     private final IsbnLookupRepository isbnCache;
     private final MetadataSources sources;
     private final CoverService covers;
@@ -72,10 +74,11 @@ public class MetadataInspectionService {
     private final IsbnLookupMapper mapper;
     private final TransactionTemplate transaction;
 
-    MetadataInspectionService(BookRepository books, IsbnLookupRepository isbnCache, MetadataSources sources,
+    MetadataInspectionService(LibraryBookRepository books, SeriesRegistry seriesRegistry, IsbnLookupRepository isbnCache, MetadataSources sources,
             CoverService covers, BookService bookService, IsbnLookupMapper mapper,
             PlatformTransactionManager transactionManager) {
         this.books = books;
+        this.seriesRegistry = seriesRegistry;
         this.isbnCache = isbnCache;
         this.sources = sources;
         this.covers = covers;
@@ -89,7 +92,9 @@ public class MetadataInspectionService {
     public PageResponse<BookMetadataSummary> list(CurrentUser user, String q, boolean onlyDifferences, int page) {
         MetadataSyncService.requireAdmin(user);
         String text = Strings.trimToNull(q) == null ? null : normalise(q);
-        List<Book> candidates = books.findByLibraryIdAndIsbn13IsNotNull(user.libraryId(), Sort.by("title", "id")).stream()
+        List<Book> candidates = books.findByLibraryIdAndBookIsbn13IsNotNull(user.libraryId(), Sort.by("book.title", "book.id"))
+                .stream()
+                .map(LibraryBook::getBook)
                 .filter(book -> text == null || normalise(book.getTitle()).contains(text)
                         || (book.getAuthors() != null && normalise(book.getAuthors()).contains(text)))
                 .toList();
@@ -109,7 +114,7 @@ public class MetadataInspectionService {
     @Transactional(readOnly = true)
     public BookMetadataResponse get(CurrentUser user, Long bookId) {
         MetadataSyncService.requireAdmin(user);
-        Book book = books.findByIdAndLibraryId(bookId, user.libraryId()).orElseThrow(NotFoundException::new);
+        Book book = find(user, bookId);
         IsbnLookup entry = book.getIsbn13() == null ? null : isbnCache.findById(book.getIsbn13()).orElse(null);
         Map<LookupSource, BookMetadata> answers = entry == null ? Map.of() : sources.decode(entry);
         List<SourceMetadataResponse> bySource = MetadataSources.ALL.stream()
@@ -135,7 +140,7 @@ public class MetadataInspectionService {
         }
         LookupSource source = LookupSource.valueOf(request.source().name());
         BookMetadata answer = transaction.execute(status -> {
-            Book book = books.findByIdAndLibraryId(bookId, user.libraryId()).orElseThrow(NotFoundException::new);
+            Book book = find(user, bookId);
             if (book.getIsbn13() == null) {
                 throw new BadRequestException("Ce livre n'a pas d'ISBN.");
             }
@@ -155,10 +160,16 @@ public class MetadataInspectionService {
         }
         String cover = coverKey;
         transaction.executeWithoutResult(status -> {
-            Book book = books.findByIdAndLibraryId(bookId, user.libraryId()).orElseThrow(NotFoundException::new);
-            MetadataSyncService.apply(book, answer, cover, SyncMode.REPLACE, Set.copyOf(request.fields()));
+            Book book = find(user, bookId);
+            MetadataSyncService.apply(book, answer, cover, SyncMode.REPLACE, Set.copyOf(request.fields()),
+                    seriesRegistry::place);
         });
-        return get(user, bookId);
+        // A call from inside the class skips get's @Transactional proxy.
+        return transaction.execute(status -> get(user, bookId));
+    }
+
+    private Book find(CurrentUser user, Long bookId) {
+        return books.findByLibraryIdAndBookId(user.libraryId(), bookId).orElseThrow(NotFoundException::new).getBook();
     }
 
     private BookMetadataSummary summary(Book book, IsbnLookup entry) {

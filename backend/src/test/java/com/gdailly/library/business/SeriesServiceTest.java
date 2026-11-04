@@ -2,9 +2,13 @@ package com.gdailly.library.business;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
@@ -13,53 +17,63 @@ import org.springframework.test.util.ReflectionTestUtils;
 import com.gdailly.library.dto.CoverResponse;
 import com.gdailly.library.dto.SeriesResponse;
 import com.gdailly.library.entity.Book;
+import com.gdailly.library.entity.BookSeries;
+import com.gdailly.library.entity.LibraryBook;
 import com.gdailly.library.entity.Role;
-import com.gdailly.library.entity.SeriesVolume;
-import com.gdailly.library.repository.BookRepository;
-import com.gdailly.library.repository.SeriesCatalogRepository;
-import com.gdailly.library.repository.SeriesVolumeRepository;
+import com.gdailly.library.entity.Series;
+import com.gdailly.library.entity.SeriesCatalogStatus;
+import com.gdailly.library.repository.BookSeriesRepository;
+import com.gdailly.library.repository.LibraryBookRepository;
+import com.gdailly.library.repository.SeriesRepository;
 import com.gdailly.library.security.CurrentUser;
 
 class SeriesServiceTest {
 
     private static final CurrentUser USER = new CurrentUser(7L, "a@example.com", 1L, Role.MEMBER);
 
-    private final BookRepository books = mock(BookRepository.class);
+    private final LibraryBookRepository entries = mock(LibraryBookRepository.class);
+    private final BookSeriesRepository links = mock(BookSeriesRepository.class);
     private final CoverService covers = mock(CoverService.class);
-    private final SeriesVolumeRepository catalog = mock(SeriesVolumeRepository.class);
-    private final SeriesService service = new SeriesService(books, covers, catalog,
-            mock(SeriesCatalogRepository.class), mock(BookService.class));
+    private final SeriesService service = new SeriesService(entries, links, mock(SeriesRepository.class), covers,
+            mock(BookService.class));
+
+    private final List<BookSeries> all = new ArrayList<>();
+    private final List<LibraryBook> mine = new ArrayList<>();
 
     @Test
     void listsOwnedWishedAndMissingVolumes() {
-        when(books.findByLibraryIdAndSeriesIsNotNull(1L)).thenReturn(List.of(
-                book(1, "Une aventure d'Astérix", 3, true, "c3"),
-                book(2, "Une aventure d’Asterix ", 1, true, "c1"),
-                book(3, "Une aventure d'Astérix", 5, false, null),
-                book(4, "Une aventure d'Astérix", null, true, null),
-                book(5, "Blake et Mortimer", 2, true, null)));
+        Series asterix = series(1, "Une aventure d'Astérix");
+        Series blake = series(2, "Blake et Mortimer");
+        held(book(1, "c3"), asterix, 3, true);
+        held(book(2, "c1"), asterix, 1, true);
+        held(book(3, null), asterix, 5, false);
+        held(book(4, null), asterix, null, true);
+        held(book(5, null), blake, 2, true);
         CoverResponse cover = new CoverResponse("thumb-1", "medium-1");
         when(covers.urls(any())).thenAnswer(call -> "c1".equals(((Book) call.getArgument(0)).getCoverKey()) ? cover : null);
+        mockRepositories();
 
         List<SeriesResponse> series = service.list(USER, null);
 
         assertThat(series).extracting(SeriesResponse::name).containsExactly("Blake et Mortimer", "Une aventure d'Astérix");
-        SeriesResponse asterix = series.get(1);
-        assertThat(asterix.books()).isEqualTo(4);
-        assertThat(asterix.owned()).isEqualTo(3);
-        assertThat(asterix.ownedNumbers()).containsExactly(1, 3);
-        assertThat(asterix.wishedNumbers()).containsExactly(5);
-        assertThat(asterix.missingNumbers()).containsExactly(2, 4, 5);
-        assertThat(asterix.lastNumber()).isEqualTo(5);
-        assertThat(asterix.unnumbered()).isEqualTo(1);
-        assertThat(asterix.cover()).isEqualTo(cover); // volume 1, the first with a cover
+        SeriesResponse found = series.get(1);
+        assertThat(found.books()).isEqualTo(4);
+        assertThat(found.owned()).isEqualTo(3);
+        assertThat(found.ownedNumbers()).containsExactly(1, 3);
+        assertThat(found.wishedNumbers()).containsExactly(5);
+        assertThat(found.missingNumbers()).containsExactly(2, 4, 5);
+        assertThat(found.lastNumber()).isEqualTo(5);
+        assertThat(found.unnumbered()).isEqualTo(1);
+        assertThat(found.catalogVolumes()).isNull();
+        assertThat(found.cover()).isEqualTo(cover); // volume 1, the first with a cover
         assertThat(series.get(0).missingNumbers()).containsExactly(1);
     }
 
     @Test
     void filtersByNameIgnoringCaseAndAccents() {
-        when(books.findByLibraryIdAndSeriesIsNotNull(1L)).thenReturn(List.of(
-                book(1, "Une aventure d'Astérix", 1, true, null), book(2, "Tintin", 1, true, null)));
+        held(book(1, null), series(1, "Une aventure d'Astérix"), 1, true);
+        held(book(2, null), series(2, "Tintin"), 1, true);
+        mockRepositories();
 
         assertThat(service.list(USER, "ASTERIX")).extracting(SeriesResponse::name).containsExactly("Une aventure d'Astérix");
         assertThat(service.list(USER, " ")).hasSize(2);
@@ -67,7 +81,8 @@ class SeriesServiceTest {
 
     @Test
     void ignoresAbsurdVolumeNumbersWhenListingGaps() {
-        when(books.findByLibraryIdAndSeriesIsNotNull(1L)).thenReturn(List.of(book(1, "Saga", 9000, true, null)));
+        held(book(1, null), series(1, "Saga"), 9000, true);
+        mockRepositories();
 
         SeriesResponse saga = service.list(USER, null).getFirst();
 
@@ -76,27 +91,46 @@ class SeriesServiceTest {
     }
 
     @Test
-    void countsTheVolumesListedByTheBnfAsMissing() {
-        when(books.findByLibraryIdAndSeriesIsNotNull(1L)).thenReturn(List.of(book(1, "Tintin", 2, true, null)));
-        when(catalog.findBySeriesKeyInOrderByNumber(List.of("tintin"))).thenReturn(List.of(
-                new SeriesVolume("tintin", 1, "Tintin au pays des Soviets", null, 1930),
-                new SeriesVolume("tintin", 2, "Tintin au Congo", null, 1931),
-                new SeriesVolume("tintin", 4, "Les Cigares du pharaon", null, 1934)));
+    void countsTheVolumesTheLibraryDoesNotHoldAsMissing() {
+        Series tintin = series(1, "Tintin");
+        tintin.listed(SeriesCatalogStatus.FOUND, "1", Instant.parse("2026-11-01T00:00:00Z"));
+        held(book(1, null), tintin, 2, true);
+        all.add(new BookSeries(book(10, null), tintin, 1));
+        all.add(new BookSeries(book(11, null), tintin, 4));
+        mockRepositories();
 
-        SeriesResponse tintin = service.list(USER, null).getFirst();
+        SeriesResponse found = service.list(USER, null).getFirst();
 
-        assertThat(tintin.lastNumber()).isEqualTo(4);
-        assertThat(tintin.catalogVolumes()).isEqualTo(3);
-        assertThat(tintin.missingNumbers()).containsExactly(1, 3, 4);
+        assertThat(found.books()).isEqualTo(1);
+        assertThat(found.lastNumber()).isEqualTo(4);
+        assertThat(found.catalogVolumes()).isEqualTo(3);
+        assertThat(found.missingNumbers()).containsExactly(1, 3, 4);
     }
 
-    private static Book book(long id, String series, Integer number, boolean owned, String coverKey) {
-        Book book = new Book(1L, 7L);
+    private void mockRepositories() {
+        when(links.findHeldBy(1L)).thenReturn(all.stream()
+                .filter(link -> mine.stream().anyMatch(entry -> entry.getBook() == link.getBook())).toList());
+        when(links.findBySeriesIds(anyCollection())).thenReturn(all);
+        when(entries.findByLibraryIdAndBookIdIn(eq(1L), anyCollection())).thenReturn(mine);
+    }
+
+    private void held(Book book, Series series, Integer number, boolean owned) {
+        all.add(new BookSeries(book, series, number));
+        LibraryBook entry = new LibraryBook(1L, book, 7L);
+        entry.setOwned(owned);
+        mine.add(entry);
+    }
+
+    private static Series series(long id, String name) {
+        Series series = new Series(name, SeriesService.key(name));
+        ReflectionTestUtils.setField(series, "id", id);
+        return series;
+    }
+
+    private static Book book(long id, String coverKey) {
+        Book book = new Book();
         ReflectionTestUtils.setField(book, "id", id);
         book.setTitle("Livre " + id);
-        book.setSeries(series);
-        book.setSeriesNumber(number);
-        book.setOwned(owned);
         book.setCoverKey(coverKey);
         return book;
     }

@@ -4,7 +4,6 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -17,13 +16,13 @@ import org.springframework.stereotype.Service;
 import com.gdailly.library.dto.SeriesDetailResponse;
 import com.gdailly.library.dto.SeriesSyncJobResponse;
 import com.gdailly.library.dto.SyncState;
-import com.gdailly.library.entity.Book;
+import com.gdailly.library.entity.Series;
 import com.gdailly.library.entity.SeriesCatalogStatus;
 import com.gdailly.library.entity.SyncKind;
 import com.gdailly.library.exception.ConflictException;
 import com.gdailly.library.exception.NotFoundException;
 import com.gdailly.library.exception.ServiceUnavailableException;
-import com.gdailly.library.repository.BookRepository;
+import com.gdailly.library.repository.SeriesRepository;
 import com.gdailly.library.security.CurrentUser;
 
 import jakarta.annotation.PreDestroy;
@@ -39,19 +38,22 @@ public class SeriesSyncService {
 
     private final SeriesCatalogService catalog;
     private final SeriesService series;
-    private final BookRepository books;
+    private final SeriesRepository seriesRepository;
+    private final BookService bookService;
     private final SyncHistoryService history;
     private final Clock clock;
     private final Duration pause;
     private final ExecutorService worker = Executors.newSingleThreadExecutor(Thread.ofVirtual().name("series-sync").factory());
     private volatile Job job;
 
-    SeriesSyncService(SeriesCatalogService catalog, SeriesService series, BookRepository books, SyncHistoryService history,
+    SeriesSyncService(SeriesCatalogService catalog, SeriesService series, SeriesRepository seriesRepository,
+            BookService bookService, SyncHistoryService history,
             Clock clock,
             @Value("${livre.series.pause:PT1S}") Duration pause) {
         this.catalog = catalog;
         this.series = series;
-        this.books = books;
+        this.seriesRepository = seriesRepository;
+        this.bookService = bookService;
         this.history = history;
         this.clock = clock;
         this.pause = pause;
@@ -75,31 +77,28 @@ public class SeriesSyncService {
         if (job != null && job.state == SyncState.RUNNING) {
             throw new ConflictException("Une synchronisation des séries est déjà en cours.");
         }
-        Map<String, List<Book>> bySeries = catalog.seriesBooks();
-        Long runId = history.start(SyncKind.SERIES_ALL, null, user.email(), bySeries.size());
-        Job started = new Job(bySeries.size(), clock.instant(), runId);
+        List<Series> all = catalog.heldSeries();
+        Long runId = history.start(SyncKind.SERIES_ALL, null, user.email(), all.size());
+        Job started = new Job(all.size(), clock.instant(), runId);
         job = started;
         SeriesSyncJobResponse response = started.toResponse();
-        worker.execute(() -> run(bySeries, started));
+        worker.execute(() -> run(all, started));
         return response;
     }
 
     /** Lists the volumes of one series of the library now; 404 if it has no book of it, 503 if the BnF fails. */
     public SeriesDetailResponse syncOne(CurrentUser user, String name) {
         MetadataSyncService.requireAdmin(user);
-        String key = SeriesService.key(name);
-        List<Book> members = books.findByLibraryIdAndSeriesIsNotNull(user.libraryId()).stream()
-                .filter(book -> SeriesService.key(book.getSeries()).equals(key))
-                .toList();
-        if (key.isEmpty() || members.isEmpty()) {
+        Series found = seriesRepository.findByNameKey(SeriesService.key(name)).orElseThrow(NotFoundException::new);
+        if (bookService.seriesBooks(user, name).isEmpty()) {
             throw new NotFoundException();
         }
         Long runId = history.start(SyncKind.SERIES_ONE, user.libraryId(), user.email(), 1);
         try {
-            catalog.record(runId, members, catalog.refresh(key, members));
+            catalog.record(runId, found.getName(), catalog.refresh(found.getId()));
         } catch (RuntimeException e) {
-            log.warn("Listing the volumes of series '{}' failed: {}", key, e.toString());
-            catalog.record(runId, members, null);
+            log.warn("Listing the volumes of series '{}' failed: {}", found.getName(), e.toString());
+            catalog.record(runId, found.getName(), null);
             throw new ServiceUnavailableException("La BnF n'a pas répondu, réessaie plus tard.");
         } finally {
             history.finish(runId, false);
@@ -107,21 +106,21 @@ public class SeriesSyncService {
         return series.detail(user, name);
     }
 
-    private void run(Map<String, List<Book>> bySeries, Job current) {
+    private void run(List<Series> all, Job current) {
         try {
-            for (Map.Entry<String, List<Book>> entry : bySeries.entrySet()) {
+            for (Series one : all) {
                 if (Thread.currentThread().isInterrupted()) {
                     return;
                 }
                 SeriesCatalogService.Refreshed refreshed = null;
                 try {
-                    refreshed = catalog.refresh(entry.getKey(), entry.getValue());
+                    refreshed = catalog.refresh(one.getId());
                     (refreshed.status() == SeriesCatalogStatus.FOUND ? current.found : current.notFound).incrementAndGet();
                 } catch (RuntimeException e) {
                     current.failed.incrementAndGet();
-                    log.warn("Listing the volumes of series '{}' failed: {}", entry.getKey(), e.toString());
+                    log.warn("Listing the volumes of series '{}' failed: {}", one.getName(), e.toString());
                 }
-                catalog.record(current.runId, entry.getValue(), refreshed);
+                catalog.record(current.runId, one.getName(), refreshed);
                 if (!pause.isZero()) {
                     Thread.sleep(pause);
                 }

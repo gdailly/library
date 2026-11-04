@@ -31,6 +31,7 @@ import com.gdailly.library.dto.BookResponse;
 import com.gdailly.library.entity.AppUser;
 import com.gdailly.library.entity.Book;
 import com.gdailly.library.entity.Category;
+import com.gdailly.library.entity.LibraryBook;
 import com.gdailly.library.entity.Reading;
 import com.gdailly.library.entity.ReadingStatus;
 import com.gdailly.library.entity.Role;
@@ -43,6 +44,9 @@ import com.gdailly.library.mapper.ReadingMapperImpl;
 import com.gdailly.library.repository.AppUserRepository;
 import com.gdailly.library.repository.BookFilter;
 import com.gdailly.library.repository.BookRepository;
+import com.gdailly.library.repository.BookSeriesRepository;
+import com.gdailly.library.repository.LibraryBookRepository;
+import com.gdailly.library.repository.SeriesRepository;
 import com.gdailly.library.repository.CategoryRepository;
 import com.gdailly.library.repository.ReadingRepository;
 import com.gdailly.library.security.CurrentUser;
@@ -52,11 +56,14 @@ class BookServiceTest {
     private static final CurrentUser USER = new CurrentUser(7L, "alice@example.com", 1L, Role.MEMBER);
 
     private final BookRepository books = mock(BookRepository.class);
+    private final LibraryBookRepository entries = mock(LibraryBookRepository.class);
+    private final SeriesRepository series = mock(SeriesRepository.class);
     private final CategoryRepository categories = mock(CategoryRepository.class);
     private final ReadingRepository readings = mock(ReadingRepository.class);
     private final AppUserRepository users = mock(AppUserRepository.class);
     private final CoverService covers = mock(CoverService.class);
-    private final BookService service = new BookService(books, categories, readings, users, covers,
+    private final BookService service = new BookService(books, entries, mock(BookSeriesRepository.class), series,
+            new SeriesRegistry(series), categories, readings, users, covers,
             mock(PlatformTransactionManager.class),
             new BookMapperImpl(new CategoryMapperImpl(), new ReadingMapperImpl()), new ReadingMapperImpl());
 
@@ -64,9 +71,12 @@ class BookServiceTest {
     void setUp() {
         when(books.save(any())).thenAnswer(call -> {
             Book book = call.getArgument(0);
-            ReflectionTestUtils.setField(book, "id", 42L);
+            if (book.getId() == null) {
+                ReflectionTestUtils.setField(book, "id", 42L);
+            }
             return book;
         });
+        when(entries.save(any())).thenAnswer(call -> call.getArgument(0));
         when(covers.importFromIsbn(anyString())).thenReturn(Optional.empty());
         when(readings.findByBookIdAndUserId(anyLong(), anyLong())).thenReturn(Optional.empty());
     }
@@ -108,11 +118,27 @@ class BookServiceTest {
 
     @Test
     void refusesDuplicateIsbnInTheLibrary() {
-        when(books.existsByLibraryIdAndIsbn13(1L, "9782070612758")).thenReturn(true);
+        Book known = book(5L, null);
+        known.setIsbn13("9782070612758");
+        when(books.findByIsbn13("9782070612758")).thenReturn(Optional.of(known));
+        when(entries.existsByLibraryIdAndBookId(1L, 5L)).thenReturn(true);
 
         assertThatThrownBy(() -> service.create(USER, request("9782070612758", "Le Petit Prince", null, null)))
                 .isInstanceOf(ConflictException.class);
         verify(books, never()).save(any());
+    }
+
+    @Test
+    void reusesTheBookAnotherLibraryHolds() {
+        Book known = book(5L, "Le Petit Prince");
+        known.setIsbn13("9782070612758");
+        known.setCoverKey("b".repeat(64));
+        when(books.findByIsbn13("9782070612758")).thenReturn(Optional.of(known));
+
+        BookResponse response = service.create(USER, request("9782070612758", "Le Petit Prince", null, null));
+
+        assertThat(response.id()).isEqualTo(5L);
+        assertThat(savedBook().getCoverKey()).isEqualTo("b".repeat(64));
     }
 
     @Test
@@ -141,10 +167,8 @@ class BookServiceTest {
 
     @Test
     void updateRefusesIsbnOfAnotherBook() {
-        Book book = new Book(1L, 7L);
-        ReflectionTestUtils.setField(book, "id", 5L);
-        when(books.findByIdAndLibraryId(5L, 1L)).thenReturn(Optional.of(book));
-        when(books.existsByLibraryIdAndIsbn13AndIdNot(1L, "9782070612758", 5L)).thenReturn(true);
+        held(5L, 7L);
+        when(books.existsByIsbn13AndIdNot("9782070612758", 5L)).thenReturn(true);
 
         assertThatThrownBy(() -> service.update(USER, 5L, request("9782070612758", "Doublon", null, null)))
                 .isInstanceOf(ConflictException.class);
@@ -152,18 +176,16 @@ class BookServiceTest {
 
     @Test
     void doesNotFindBooksOfAnotherLibrary() {
-        when(books.findByIdAndLibraryId(5L, 1L)).thenReturn(Optional.empty());
+        when(entries.findByLibraryIdAndBookId(1L, 5L)).thenReturn(Optional.empty());
         assertThatThrownBy(() -> service.get(USER, 5L)).isInstanceOf(NotFoundException.class);
         assertThatThrownBy(() -> service.delete(USER, 5L)).isInstanceOf(NotFoundException.class);
     }
 
     @Test
     void includesMyReading() {
-        Book book = new Book(1L, 2L);
-        ReflectionTestUtils.setField(book, "id", 5L);
+        held(5L, 2L);
         Reading reading = new Reading(5L, 7L);
         reading.setStatus(ReadingStatus.READING);
-        when(books.findByIdAndLibraryId(5L, 1L)).thenReturn(Optional.of(book));
         when(readings.findByBookIdAndUserId(5L, 7L)).thenReturn(Optional.of(reading));
 
         assertThat(service.get(USER, 5L).myReading().status()).isEqualTo(ReadingStatus.READING);
@@ -172,31 +194,27 @@ class BookServiceTest {
     @Test
     @SuppressWarnings("unchecked")
     void searchesFirstPageOfFiftyByTitle() {
-        Page<Book> empty = new PageImpl<>(List.of());
-        when(books.findAll(any(Specification.class), any(Pageable.class))).thenReturn(empty);
+        Page<LibraryBook> empty = new PageImpl<>(List.of());
+        when(entries.findAll(any(Specification.class), any(Pageable.class))).thenReturn(empty);
 
         service.search(USER, new BookService.SearchCriteria(null, null, null, null, null), -3);
 
         ArgumentCaptor<Pageable> pageable = ArgumentCaptor.forClass(Pageable.class);
-        verify(books).findAll(any(Specification.class), pageable.capture());
+        verify(entries).findAll(any(Specification.class), pageable.capture());
         assertThat(pageable.getValue().getPageNumber()).isZero();
         assertThat(pageable.getValue().getPageSize()).isEqualTo(50);
-        assertThat(pageable.getValue().getSort()).isEqualTo(Sort.by("title", "id"));
+        assertThat(pageable.getValue().getSort()).isEqualTo(Sort.by("book.title", "book.id"));
         verify(readings, never()).findByUserIdAndBookIdIn(anyLong(), any());
     }
 
     @Test
     @SuppressWarnings("unchecked")
     void searchReturnsBooksWithMyReadings() {
-        Book read = new Book(1L, 2L);
-        ReflectionTestUtils.setField(read, "id", 5L);
-        read.setTitle("Lu");
-        Book unread = new Book(1L, 2L);
-        ReflectionTestUtils.setField(unread, "id", 6L);
-        unread.setTitle("Pas lu");
+        LibraryBook read = new LibraryBook(1L, book(5L, "Lu"), 2L);
+        LibraryBook unread = new LibraryBook(1L, book(6L, "Pas lu"), 2L);
         Reading reading = new Reading(5L, 7L);
         reading.setStatus(ReadingStatus.READ);
-        when(books.findAll(any(Specification.class), any(Pageable.class)))
+        when(entries.findAll(any(Specification.class), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(read, unread), Pageable.ofSize(50), 2));
         when(readings.findByUserIdAndBookIdIn(7L, List.of(5L, 6L))).thenReturn(List.of(reading));
 
@@ -210,14 +228,12 @@ class BookServiceTest {
 
     @Test
     void showsWhoAddedTheBookAndTheOtherMembersReadings() {
-        Book book = new Book(1L, 2L);
-        ReflectionTestUtils.setField(book, "id", 5L);
+        held(5L, 2L);
         Reading claire = new Reading(5L, 2L);
         claire.setStatus(ReadingStatus.READ);
         claire.setRating(4);
         Reading ben = new Reading(5L, 3L);
         ben.setStatus(ReadingStatus.READING);
-        when(books.findByIdAndLibraryId(5L, 1L)).thenReturn(Optional.of(book));
         when(readings.findByBookIdAndUserIdNot(5L, 7L)).thenReturn(List.of(claire, ben));
         when(users.findAllById(Set.of(2L, 3L))).thenReturn(List.of(
                 user(2L, "claire@example.com", "Claire"), user(3L, "ben.martin@example.com", null)));
@@ -232,9 +248,7 @@ class BookServiceTest {
 
     @Test
     void hasNoAuthorNameWhenTheMemberLeft() {
-        Book book = new Book(1L, null);
-        ReflectionTestUtils.setField(book, "id", 5L);
-        when(books.findByIdAndLibraryId(5L, 1L)).thenReturn(Optional.of(book));
+        held(5L, null);
 
         BookResponse response = service.get(USER, 5L);
 
@@ -270,6 +284,18 @@ class BookServiceTest {
     @Test
     void escapesLikeWildcards() {
         assertThat(BookService.escapeLike("100%_c\\")).isEqualTo("100\\%\\_c\\\\");
+    }
+
+    private static Book book(long id, String title) {
+        Book book = new Book();
+        ReflectionTestUtils.setField(book, "id", id);
+        book.setTitle(title == null ? "Livre" : title);
+        return book;
+    }
+
+    /** Book {@code id} in library 1, added by {@code addedBy}. */
+    private void held(long id, Long addedBy) {
+        when(entries.findByLibraryIdAndBookId(1L, id)).thenReturn(Optional.of(new LibraryBook(1L, book(id, null), addedBy)));
     }
 
     private Book savedBook() {

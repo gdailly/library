@@ -1,20 +1,24 @@
 package com.gdailly.library.entity;
 
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Set;
 
 import org.hibernate.annotations.BatchSize;
 
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.JoinTable;
-import jakarta.persistence.ManyToMany;
+import jakarta.persistence.OneToMany;
 
+/**
+ * A book itself, as the ISBN lookup describes it, shared by every library: one row per ISBN. What a library owns or
+ * wishes is a {@link LibraryBook}; the series it belongs to are {@link BookSeries}.
+ */
 @Entity
 public class Book {
 
@@ -22,19 +26,12 @@ public class Book {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
-    private Long libraryId;
-
     private String isbn13;
 
     @Column(nullable = false)
     private String title;
 
     private String subtitle;
-
-    private String series;
-
-    private Integer seriesNumber;
 
     private String authors;
 
@@ -51,35 +48,18 @@ public class Book {
     private String summary;
 
     @Column(nullable = false)
-    private boolean owned = true;
-
-    private Long addedBy;
-
-    @Column(nullable = false)
     private Instant createdAt;
 
-    @ManyToMany
-    @JoinTable(name = "book_category",
-            joinColumns = @JoinColumn(name = "book_id"),
-            inverseJoinColumns = @JoinColumn(name = "category_id"))
+    @OneToMany(mappedBy = "book", cascade = CascadeType.ALL, orphanRemoval = true)
     @BatchSize(size = 50)
-    private Set<Category> categories = new HashSet<>();
+    private Set<BookSeries> seriesLinks = new HashSet<>();
 
-    protected Book() {
-    }
-
-    public Book(Long libraryId, Long addedBy) {
-        this.libraryId = libraryId;
-        this.addedBy = addedBy;
+    public Book() {
         this.createdAt = Instant.now();
     }
 
     public Long getId() {
         return id;
-    }
-
-    public Long getLibraryId() {
-        return libraryId;
     }
 
     public String getIsbn13() {
@@ -104,22 +84,6 @@ public class Book {
 
     public void setSubtitle(String subtitle) {
         this.subtitle = subtitle;
-    }
-
-    public String getSeries() {
-        return series;
-    }
-
-    public void setSeries(String series) {
-        this.series = series;
-    }
-
-    public Integer getSeriesNumber() {
-        return seriesNumber;
-    }
-
-    public void setSeriesNumber(Integer seriesNumber) {
-        this.seriesNumber = seriesNumber;
     }
 
     public String getAuthors() {
@@ -178,28 +142,39 @@ public class Book {
         this.summary = summary;
     }
 
-    public boolean isOwned() {
-        return owned;
-    }
-
-    public void setOwned(boolean owned) {
-        this.owned = owned;
-    }
-
-    public Long getAddedBy() {
-        return addedBy;
-    }
-
     public Instant getCreatedAt() {
         return createdAt;
     }
 
-    public Set<Category> getCategories() {
-        return categories;
+    public Set<BookSeries> getSeriesLinks() {
+        return seriesLinks;
     }
 
-    public void setCategories(Set<Category> categories) {
-        this.categories.clear();
-        this.categories.addAll(categories);
+    /** The series shown with the book: the first one by name (a book is rarely in more than one). */
+    public BookSeries mainSeries() {
+        return seriesLinks.stream()
+                .min(Comparator.comparing(link -> link.getSeries().getName(), String.CASE_INSENSITIVE_ORDER))
+                .orElse(null);
+    }
+
+    public String getSeriesName() {
+        BookSeries main = mainSeries();
+        return main == null ? null : main.getSeries().getName();
+    }
+
+    public Integer getSeriesNumber() {
+        BookSeries main = mainSeries();
+        return main == null ? null : main.getNumber();
+    }
+
+    /** Puts the book in {@code series} only (none when null), as volume {@code number}. */
+    public void placeInSeries(Series series, Integer number) {
+        if (series == null) {
+            seriesLinks.clear();
+            return;
+        }
+        seriesLinks.removeIf(link -> !link.getSeries().getNameKey().equals(series.getNameKey()));
+        seriesLinks.stream().findFirst().ifPresentOrElse(link -> link.setNumber(number),
+                () -> seriesLinks.add(new BookSeries(this, series, number)));
     }
 }
