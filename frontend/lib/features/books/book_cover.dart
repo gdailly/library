@@ -1,4 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cached_network_image_platform_interface/cached_network_image_platform_interface.dart'
+    show ImageRenderMethodForWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -46,6 +48,10 @@ class BookCover extends ConsumerWidget {
               : CachedNetworkImage(
                   imageUrl: ref.watch(appConfigProvider).resolve(url),
                   fit: BoxFit.cover,
+                  // On the web, the default HtmlImage loader leaves the cover blank when a page is
+                  // shown again (its cached codec yields no image the second time); HttpGet decodes
+                  // the downloaded bytes and keeps them in memory. Ignored on Android.
+                  imageRenderMethodForWeb: ImageRenderMethodForWeb.HttpGet,
                   placeholder: (_, _) => ColoredBox(color: colorFor(title)),
                   errorWidget: (_, _, _) => drawn,
                 ),
