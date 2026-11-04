@@ -50,12 +50,14 @@ String syncOutcomeLabel(SyncItemOutcome outcome) => switch (outcome) {
       SyncItemOutcome.NOT_FOUND => 'Introuvable',
       SyncItemOutcome.NO_REFERENCE => 'Sans notice',
       SyncItemOutcome.FAILED => 'Échec',
+      SyncItemOutcome.ADDED => 'Nouveau',
+      SyncItemOutcome.REMOVED => 'Retiré',
     };
 
 /// Foreground and background of an outcome's tag.
 (Color, Color) syncOutcomeColors(SyncItemOutcome outcome) => switch (outcome) {
-      SyncItemOutcome.UPDATED || SyncItemOutcome.FOUND => (AppColors.accent, AppColors.accentLight),
-      SyncItemOutcome.FAILED => (AppColors.error, AppColors.errorBackground),
+      SyncItemOutcome.UPDATED || SyncItemOutcome.FOUND || SyncItemOutcome.ADDED => (AppColors.accent, AppColors.accentLight),
+      SyncItemOutcome.FAILED || SyncItemOutcome.REMOVED => (AppColors.error, AppColors.errorBackground),
       _ => (AppColors.textSecondary, AppColors.chipBackground),
     };
 

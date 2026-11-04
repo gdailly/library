@@ -26,6 +26,7 @@ import com.gdailly.library.entity.LookupSource;
 import com.gdailly.library.entity.SeriesCatalog;
 import com.gdailly.library.entity.SeriesCatalogStatus;
 import com.gdailly.library.entity.SeriesVolume;
+import com.gdailly.library.entity.SyncItemOutcome;
 import com.gdailly.library.repository.BookRepository;
 import com.gdailly.library.repository.IsbnLookupRepository;
 import com.gdailly.library.repository.SeriesCatalogRepository;
@@ -123,6 +124,29 @@ class SeriesCatalogServiceTest {
 
         assertThat(chosen).extracting(SeriesVolume::getNumber).containsExactly(1, 2);
         assertThat(chosen.get(1).getIsbn13()).isEqualTo("9782012101341");
+    }
+
+    @Test
+    void describesEachVolumeAgainstTheLastListingAndTheLibrary() {
+        Book owned = book("9782012101333", "Astérix");
+        owned.setSeriesNumber(1);
+        Book wished = book(null, "Astérix");
+        wished.setSeriesNumber(3);
+        wished.setOwned(false);
+        var refreshed = new SeriesCatalogService.Refreshed(SeriesCatalogStatus.FOUND,
+                List.of(new SeriesVolume("asterix", 1, "Astérix le Gaulois", "9782012101333", 1961),
+                        new SeriesVolume("asterix", 3, "Astérix et les Goths", null, null)),
+                List.of(new SeriesVolume("asterix", 1, "Astérix le Gaulois", "9782012101333", 1961),
+                        new SeriesVolume("asterix", 2, "La Serpe d'or", null, 1962)));
+
+        List<SyncHistoryService.Child> lines = SeriesCatalogService.volumeLines(List.of(owned, wished), refreshed);
+
+        assertThat(lines).containsExactly(
+                new SyncHistoryService.Child("Tome 1 · Astérix le Gaulois", SyncItemOutcome.UNCHANGED,
+                        "ISBN 9782012101333 · 1961 · possédé"),
+                new SyncHistoryService.Child("Tome 2 · La Serpe d'or", SyncItemOutcome.REMOVED,
+                        "1962 · manquant dans la bibliothèque"),
+                new SyncHistoryService.Child("Tome 3 · Astérix et les Goths", SyncItemOutcome.ADDED, "dans les envies"));
     }
 
     private static Book book(String isbn13, String series) {

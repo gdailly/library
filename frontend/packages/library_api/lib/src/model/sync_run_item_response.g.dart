@@ -15,6 +15,8 @@ abstract class _$SyncRunItemResponseCWProxy {
 
   SyncRunItemResponse detail(String? detail);
 
+  SyncRunItemResponse childCount(int childCount);
+
   SyncRunItemResponse createdAt(DateTime createdAt);
 
   /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `SyncRunItemResponse(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
@@ -28,6 +30,7 @@ abstract class _$SyncRunItemResponseCWProxy {
     String label,
     SyncItemOutcome outcome,
     String? detail,
+    int childCount,
     DateTime createdAt,
   });
 }
@@ -52,6 +55,10 @@ class _$SyncRunItemResponseCWProxyImpl implements _$SyncRunItemResponseCWProxy {
   SyncRunItemResponse detail(String? detail) => this(detail: detail);
 
   @override
+  SyncRunItemResponse childCount(int childCount) =>
+      this(childCount: childCount);
+
+  @override
   SyncRunItemResponse createdAt(DateTime createdAt) =>
       this(createdAt: createdAt);
 
@@ -67,6 +74,7 @@ class _$SyncRunItemResponseCWProxyImpl implements _$SyncRunItemResponseCWProxy {
     Object? label = const $CopyWithPlaceholder(),
     Object? outcome = const $CopyWithPlaceholder(),
     Object? detail = const $CopyWithPlaceholder(),
+    Object? childCount = const $CopyWithPlaceholder(),
     Object? createdAt = const $CopyWithPlaceholder(),
   }) {
     return SyncRunItemResponse(
@@ -86,6 +94,10 @@ class _$SyncRunItemResponseCWProxyImpl implements _$SyncRunItemResponseCWProxy {
           ? _value.detail
           // ignore: cast_nullable_to_non_nullable
           : detail as String?,
+      childCount: childCount == const $CopyWithPlaceholder()
+          ? _value.childCount
+          // ignore: cast_nullable_to_non_nullable
+          : childCount as int,
       createdAt: createdAt == const $CopyWithPlaceholder()
           ? _value.createdAt
           // ignore: cast_nullable_to_non_nullable
@@ -108,7 +120,10 @@ extension $SyncRunItemResponseCopyWith on SyncRunItemResponse {
 SyncRunItemResponse _$SyncRunItemResponseFromJson(
   Map<String, dynamic> json,
 ) => $checkedCreate('SyncRunItemResponse', json, ($checkedConvert) {
-  $checkKeys(json, requiredKeys: const ['id', 'label', 'outcome', 'createdAt']);
+  $checkKeys(
+    json,
+    requiredKeys: const ['id', 'label', 'outcome', 'childCount', 'createdAt'],
+  );
   final val = SyncRunItemResponse(
     id: $checkedConvert('id', (v) => (v as num).toInt()),
     label: $checkedConvert('label', (v) => v as String),
@@ -117,6 +132,7 @@ SyncRunItemResponse _$SyncRunItemResponseFromJson(
       (v) => $enumDecode(_$SyncItemOutcomeEnumMap, v),
     ),
     detail: $checkedConvert('detail', (v) => v as String?),
+    childCount: $checkedConvert('childCount', (v) => (v as num).toInt()),
     createdAt: $checkedConvert('createdAt', (v) => DateTime.parse(v as String)),
   );
   return val;
@@ -129,6 +145,7 @@ Map<String, dynamic> _$SyncRunItemResponseToJson(
   'label': instance.label,
   'outcome': _$SyncItemOutcomeEnumMap[instance.outcome]!,
   'detail': ?instance.detail,
+  'childCount': instance.childCount,
   'createdAt': instance.createdAt.toIso8601String(),
 };
 
@@ -139,4 +156,6 @@ const _$SyncItemOutcomeEnumMap = {
   SyncItemOutcome.NOT_FOUND: 'NOT_FOUND',
   SyncItemOutcome.NO_REFERENCE: 'NO_REFERENCE',
   SyncItemOutcome.FAILED: 'FAILED',
+  SyncItemOutcome.ADDED: 'ADDED',
+  SyncItemOutcome.REMOVED: 'REMOVED',
 };

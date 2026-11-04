@@ -10,7 +10,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.SortedSet;
 import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
@@ -119,21 +121,64 @@ public class SeriesCatalogService {
         }
     }
 
-    /** Writes in the history what listing a series gave; {@code refreshed} null when the BnF failed. */
+    /** Writes in the history what listing a series gave, volume by volume; {@code refreshed} null when the BnF failed. */
     void record(Long runId, List<Book> members, Refreshed refreshed) {
         String label = members.getFirst().getSeries();
         if (refreshed == null) {
             history.record(runId, label, SyncItemOutcome.FAILED, "La BnF n'a pas répondu");
             return;
         }
+        List<SyncHistoryService.Child> children = volumeLines(members, refreshed);
+        long added = children.stream().filter(c -> c.outcome() == SyncItemOutcome.ADDED).count();
+        long removed = children.stream().filter(c -> c.outcome() == SyncItemOutcome.REMOVED).count();
+        String changes = (added > 0 ? ", " + added + (added > 1 ? " nouveaux" : " nouveau") : "")
+                + (removed > 0 ? ", " + removed + (removed > 1 ? " retirés" : " retiré") : "");
+        int listed = refreshed.volumes().size();
         switch (refreshed.status()) {
             case FOUND -> history.record(runId, label, SyncItemOutcome.FOUND,
-                    refreshed.volumes() + (refreshed.volumes() > 1 ? " tomes listés" : " tome listé"));
+                    listed + (listed > 1 ? " tomes listés" : " tome listé") + changes, children);
             case NOT_FOUND -> history.record(runId, label, SyncItemOutcome.NOT_FOUND,
-                    "La notice BnF de la série ne liste aucun tome");
+                    "La notice BnF de la série ne liste aucun tome" + changes, children);
             case NO_REFERENCE -> history.record(runId, label, SyncItemOutcome.NO_REFERENCE,
-                    "Aucun livre de la série n'est rattaché à une notice de série BnF");
+                    "Aucun livre de la série n'est rattaché à une notice de série BnF" + changes, children);
         }
+    }
+
+    /**
+     * One line per volume listed now (ADDED when it was not listed before, UNCHANGED otherwise) or listed before only
+     * (REMOVED), by number, saying whether a library holds it.
+     */
+    static List<SyncHistoryService.Child> volumeLines(List<Book> members, Refreshed refreshed) {
+        Map<Integer, SeriesVolume> before = refreshed.previous().stream()
+                .collect(Collectors.toMap(SeriesVolume::getNumber, v -> v, (a, b) -> a, TreeMap::new));
+        Map<Integer, SeriesVolume> now = refreshed.volumes().stream()
+                .collect(Collectors.toMap(SeriesVolume::getNumber, v -> v, (a, b) -> a, TreeMap::new));
+        Map<Integer, Boolean> held = new TreeMap<>();
+        for (Book book : members) {
+            if (book.getSeriesNumber() != null) {
+                held.merge(book.getSeriesNumber(), book.isOwned(), Boolean::logicalOr);
+            }
+        }
+        SortedSet<Integer> numbers = new TreeSet<>(now.keySet());
+        numbers.addAll(before.keySet());
+        List<SyncHistoryService.Child> lines = new ArrayList<>();
+        for (Integer number : numbers) {
+            SeriesVolume volume = now.containsKey(number) ? now.get(number) : before.get(number);
+            SyncItemOutcome outcome = !now.containsKey(number) ? SyncItemOutcome.REMOVED
+                    : before.containsKey(number) ? SyncItemOutcome.UNCHANGED : SyncItemOutcome.ADDED;
+            List<String> facts = new ArrayList<>();
+            if (volume.getIsbn13() != null) {
+                facts.add("ISBN " + volume.getIsbn13());
+            }
+            if (volume.getYear() != null) {
+                facts.add(String.valueOf(volume.getYear()));
+            }
+            Boolean owned = held.get(number);
+            facts.add(owned == null ? "manquant dans la bibliothèque" : owned ? "possédé" : "dans les envies");
+            lines.add(new SyncHistoryService.Child("Tome " + number + " · " + volume.getTitle(), outcome,
+                    String.join(" · ", facts)));
+        }
+        return lines;
     }
 
     /** The books of every library that belong to a series, by series key. */
@@ -162,6 +207,8 @@ public class SeriesCatalogService {
         List<SeriesVolume> chosen = choose(key, found);
         SeriesCatalogStatus status = ref.isEmpty() ? SeriesCatalogStatus.NO_REFERENCE
                 : chosen.isEmpty() ? SeriesCatalogStatus.NOT_FOUND : SeriesCatalogStatus.FOUND;
+        // Read apart from the write below: the deleted entities must not stay in the persistence context.
+        List<SeriesVolume> previous = volumes.findBySeriesKeyOrderByNumber(key);
         Instant now = clock.instant();
         transaction.executeWithoutResult(tx -> {
             SeriesCatalog catalog = catalogs.findById(key).orElse(null);
@@ -174,11 +221,11 @@ public class SeriesCatalogService {
             volumes.flush();
             volumes.saveAll(chosen);
         });
-        return new Refreshed(status, chosen.size());
+        return new Refreshed(status, chosen, previous);
     }
 
-    /** How listing a series went, and how many volumes the BnF listed. */
-    record Refreshed(SeriesCatalogStatus status, int volumes) {
+    /** How listing a series went, the volumes the BnF lists now and those it listed before. */
+    record Refreshed(SeriesCatalogStatus status, List<SeriesVolume> volumes, List<SeriesVolume> previous) {
     }
 
     /** The BnF series record linked by the cached answer of a volume of the series. */

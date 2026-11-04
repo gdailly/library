@@ -2,7 +2,9 @@ package com.gdailly.library.business;
 
 import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Set;
 
 import org.slf4j.Logger;
@@ -70,16 +72,33 @@ public class SyncHistoryService {
         }
     }
 
+    /** One line under an item: a volume listed for a series. */
+    public record Child(String label, SyncItemOutcome outcome, String detail) {
+    }
+
     /** Records what a synchronisation did with one item and counts it. */
     @Transactional
     public void record(Long runId, String label, SyncItemOutcome outcome, String detail) {
+        record(runId, label, outcome, detail, List.of());
+    }
+
+    /** Like {@link #record(Long, String, SyncItemOutcome, String)}, with the lines under the item (not counted). */
+    @Transactional
+    public void record(Long runId, String label, SyncItemOutcome outcome, String detail, List<Child> children) {
         if (runId == null) {
             return;
         }
         try {
             runs.findById(runId).ifPresent(run -> {
                 run.count(outcome);
-                items.save(new SyncRunItem(runId, limit(label, 500), outcome, limit(detail, 1000), clock.instant()));
+                Instant now = clock.instant();
+                SyncRunItem item = new SyncRunItem(runId, null, limit(label, 500), outcome, limit(detail, 1000), now);
+                item.setChildCount(children.size());
+                Long parentId = items.save(item).getId();
+                items.saveAll(children.stream()
+                        .map(child -> new SyncRunItem(runId, parentId, limit(child.label(), 500), child.outcome(),
+                                limit(child.detail(), 1000), now))
+                        .toList());
             });
         } catch (RuntimeException e) {
             log.warn("Could not record an item of synchronisation {}: {}", runId, e.toString());
@@ -143,8 +162,19 @@ public class SyncHistoryService {
             throw new NotFoundException();
         }
         Pageable pageable = PageRequest.of(page, ITEMS_PER_PAGE);
-        return PageResponse.of(problemsOnly ? items.findByRunIdAndOutcomeInOrderByIdDesc(id, PROBLEMS, pageable)
-                : items.findByRunIdOrderByIdDesc(id, pageable), mapper::toResponse);
+        return PageResponse.of(problemsOnly
+                ? items.findByRunIdAndParentIdIsNullAndOutcomeInOrderByIdDesc(id, PROBLEMS, pageable)
+                : items.findByRunIdAndParentIdIsNullOrderByIdDesc(id, pageable), mapper::toResponse);
+    }
+
+    /** The lines under an item of a synchronisation: the volumes listed for a series, in order. */
+    @Transactional(readOnly = true)
+    public List<SyncRunItemResponse> children(CurrentUser user, Long id, Long itemId) {
+        MetadataSyncService.requireAdmin(user);
+        if (!runs.existsById(id)) {
+            throw new NotFoundException();
+        }
+        return items.findByRunIdAndParentIdOrderByIdAsc(id, itemId).stream().map(mapper::toResponse).toList();
     }
 
     private static String limit(String value, int max) {

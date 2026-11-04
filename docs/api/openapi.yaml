@@ -648,6 +648,33 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/PageResponseSyncRunItemResponse"
+  /api/admin/syncs/{id}/items/{itemId}/children:
+    get:
+      tags:
+      - Admin
+      operationId: listSyncRunItemChildren
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: itemId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SyncRunItemResponse"
   /api/admin/metadata:
     get:
       tags:
@@ -1496,6 +1523,8 @@ components:
       - NOT_FOUND
       - NO_REFERENCE
       - FAILED
+      - ADDED
+      - REMOVED
     SyncRunItemResponse:
       type: object
       properties:
@@ -1508,10 +1537,14 @@ components:
           $ref: "#/components/schemas/SyncItemOutcome"
         detail:
           type: string
+        childCount:
+          type: integer
+          format: int32
         createdAt:
           type: string
           format: date-time
       required:
+      - childCount
       - createdAt
       - id
       - label

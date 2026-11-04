@@ -32,8 +32,8 @@ PageResponseSyncRunResponse runs(List<SyncRunResponse> items) =>
 PageResponseSyncRunItemResponse items(List<SyncRunItemResponse> items) =>
     PageResponseSyncRunItemResponse(items: items, page: 0, size: 50, totalItems: items.length, totalPages: 1);
 
-SyncRunItemResponse item(int id, String label, SyncItemOutcome outcome, [String? detail]) =>
-    SyncRunItemResponse(id: id, label: label, outcome: outcome, detail: detail, createdAt: _start);
+SyncRunItemResponse item(int id, String label, SyncItemOutcome outcome, [String? detail, int childCount = 0]) =>
+    SyncRunItemResponse(id: id, label: label, outcome: outcome, detail: detail, childCount: childCount, createdAt: _start);
 
 void main() {
   late FakeApi api;
@@ -106,5 +106,25 @@ void main() {
     await tester.pump();
     expect(find.text('L\'Étranger'), findsNothing);
     expect(find.text('Dune'), findsOneWidget);
+  });
+
+  testWidgets('a series opens on its volumes', (tester) async {
+    when(() => api.admin.getSyncRun(id: 8)).thenAnswer(
+        (_) async => ok(run(SyncRunState.DONE, id: 8, kind: SyncKind.SERIES_ALL, total: 1, processed: 1, succeeded: 1)));
+    when(() => api.admin.listSyncRunItems(id: 8, problemsOnly: false, page: 0)).thenAnswer(
+        (_) async => ok(items([item(3, 'Astérix', SyncItemOutcome.FOUND, '2 tomes listés, 1 nouveau', 2)])));
+    when(() => api.admin.listSyncRunItemChildren(id: 8, itemId: 3)).thenAnswer((_) async => ok([
+          item(4, 'Tome 1 · Astérix le Gaulois', SyncItemOutcome.UNCHANGED, 'possédé'),
+          item(5, 'Tome 2 · La Serpe d\'or', SyncItemOutcome.ADDED, 'manquant dans la bibliothèque'),
+        ]));
+
+    await pumpScreen(tester, const SyncRunScreen(runId: 8), overrides: [api.override]);
+    expect(find.text('Tome 1 · Astérix le Gaulois'), findsNothing);
+
+    await tester.tap(find.text('Astérix'));
+    await tester.pumpAndSettle();
+    expect(find.text('Tome 1 · Astérix le Gaulois'), findsOneWidget);
+    expect(find.text('Nouveau'), findsOneWidget);
+    expect(find.text('manquant dans la bibliothèque'), findsOneWidget);
   });
 }
