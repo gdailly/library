@@ -73,7 +73,10 @@ Class | Method | HTTP request | Description
 [*AdminApi*](doc/AdminApi.md) | [**getMetadataAdmin**](doc/AdminApi.md#getmetadataadmin) | **GET** /api/admin/metadata | 
 [*AdminApi*](doc/AdminApi.md) | [**getMetadataSync**](doc/AdminApi.md#getmetadatasync) | **GET** /api/admin/metadata/sync | 
 [*AdminApi*](doc/AdminApi.md) | [**getSeriesSync**](doc/AdminApi.md#getseriessync) | **GET** /api/admin/series/sync | 
+[*AdminApi*](doc/AdminApi.md) | [**getSyncRun**](doc/AdminApi.md#getsyncrun) | **GET** /api/admin/syncs/{id} | 
 [*AdminApi*](doc/AdminApi.md) | [**listBookMetadata**](doc/AdminApi.md#listbookmetadata) | **GET** /api/admin/metadata/books | 
+[*AdminApi*](doc/AdminApi.md) | [**listSyncRunItems**](doc/AdminApi.md#listsyncrunitems) | **GET** /api/admin/syncs/{id}/items | 
+[*AdminApi*](doc/AdminApi.md) | [**listSyncRuns**](doc/AdminApi.md#listsyncruns) | **GET** /api/admin/syncs | 
 [*AdminApi*](doc/AdminApi.md) | [**startMetadataSync**](doc/AdminApi.md#startmetadatasync) | **POST** /api/admin/metadata/sync | 
 [*AdminApi*](doc/AdminApi.md) | [**startSeriesSync**](doc/AdminApi.md#startseriessync) | **POST** /api/admin/series/sync | 
 [*AdminApi*](doc/AdminApi.md) | [**syncBookMetadata**](doc/AdminApi.md#syncbookmetadata) | **POST** /api/admin/metadata/books/{id}/sync | 
@@ -125,6 +128,8 @@ Class | Method | HTTP request | Description
  - [OtherReadingResponse](doc/OtherReadingResponse.md)
  - [PageResponseBookMetadataSummary](doc/PageResponseBookMetadataSummary.md)
  - [PageResponseBookResponse](doc/PageResponseBookResponse.md)
+ - [PageResponseSyncRunItemResponse](doc/PageResponseSyncRunItemResponse.md)
+ - [PageResponseSyncRunResponse](doc/PageResponseSyncRunResponse.md)
  - [ReadingRequest](doc/ReadingRequest.md)
  - [ReadingResponse](doc/ReadingResponse.md)
  - [ReadingStatus](doc/ReadingStatus.md)
@@ -134,8 +139,13 @@ Class | Method | HTTP request | Description
  - [SeriesSyncJobResponse](doc/SeriesSyncJobResponse.md)
  - [SeriesVolumeResponse](doc/SeriesVolumeResponse.md)
  - [SourceMetadataResponse](doc/SourceMetadataResponse.md)
+ - [SyncItemOutcome](doc/SyncItemOutcome.md)
+ - [SyncKind](doc/SyncKind.md)
  - [SyncMode](doc/SyncMode.md)
  - [SyncOutcome](doc/SyncOutcome.md)
+ - [SyncRunItemResponse](doc/SyncRunItemResponse.md)
+ - [SyncRunResponse](doc/SyncRunResponse.md)
+ - [SyncRunState](doc/SyncRunState.md)
  - [SyncState](doc/SyncState.md)
 
 

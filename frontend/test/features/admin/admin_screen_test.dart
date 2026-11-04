@@ -45,10 +45,12 @@ void main() {
     api = FakeApi();
     when(() => api.admin.getMetadataAdmin()).thenAnswer((_) async => ok(overview()));
     when(() => api.admin.getSeriesSync()).thenAnswer((_) async => ok(seriesJob(SyncState.IDLE)));
+    when(() => api.admin.listSyncRuns(page: any(named: 'page')))
+        .thenAnswer((_) async => ok(PageResponseSyncRunResponse(items: [], page: 0, size: 20, totalItems: 0, totalPages: 0)));
   });
 
   Future<void> pumpAdmin(WidgetTester tester) async {
-    tester.view.physicalSize = const Size(800, 1600);
+    tester.view.physicalSize = const Size(800, 2200);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await pumpScreen(tester, const AdminScreen(pollInterval: Duration(milliseconds: 10)), overrides: [api.override]);

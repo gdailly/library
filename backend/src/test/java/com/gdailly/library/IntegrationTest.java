@@ -36,7 +36,7 @@ import com.jayway.jsonpath.JsonPath;
 @SpringBootTest(properties = {
         "livre.bootstrap.owner-email=" + IntegrationTest.OWNER_EMAIL,
         "livre.covers.url-secret=integration-test-secret",
-        "livre.series.refresh-enabled=false",
+        "livre.scheduling-enabled=false",
         "livre.series.pause=PT0S"})
 @AutoConfigureMockMvc
 @Import(TestcontainersConfiguration.class)

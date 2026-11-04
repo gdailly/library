@@ -47,8 +47,9 @@ class SeriesCatalogServiceTest {
     private final SeriesVolumeRepository volumes = mock(SeriesVolumeRepository.class);
     private final BnfClient bnf = mock(BnfClient.class);
     private final MetadataSources sources = mock(MetadataSources.class);
+    private final SyncHistoryService history = mock(SyncHistoryService.class);
     private final SeriesCatalogService service = new SeriesCatalogService(books, isbnCache, catalogs, volumes, bnf,
-            sources, mock(PlatformTransactionManager.class), Clock.fixed(NOW, ZoneOffset.UTC), Duration.ZERO);
+            sources, history, mock(PlatformTransactionManager.class), Clock.fixed(NOW, ZoneOffset.UTC), Duration.ZERO);
 
     @Test
     void listsTheVolumesOfANewSeriesFromTheBnfRecordOfAVolume() {
