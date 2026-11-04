@@ -19,6 +19,7 @@ import com.gdailly.library.dto.SeriesSyncJobResponse;
 import com.gdailly.library.dto.SyncState;
 import com.gdailly.library.entity.Book;
 import com.gdailly.library.entity.SeriesCatalogStatus;
+import com.gdailly.library.entity.SyncKind;
 import com.gdailly.library.exception.ConflictException;
 import com.gdailly.library.exception.NotFoundException;
 import com.gdailly.library.exception.ServiceUnavailableException;
@@ -39,16 +40,19 @@ public class SeriesSyncService {
     private final SeriesCatalogService catalog;
     private final SeriesService series;
     private final BookRepository books;
+    private final SyncHistoryService history;
     private final Clock clock;
     private final Duration pause;
     private final ExecutorService worker = Executors.newSingleThreadExecutor(Thread.ofVirtual().name("series-sync").factory());
     private volatile Job job;
 
-    SeriesSyncService(SeriesCatalogService catalog, SeriesService series, BookRepository books, Clock clock,
+    SeriesSyncService(SeriesCatalogService catalog, SeriesService series, BookRepository books, SyncHistoryService history,
+            Clock clock,
             @Value("${livre.series.pause:PT1S}") Duration pause) {
         this.catalog = catalog;
         this.series = series;
         this.books = books;
+        this.history = history;
         this.clock = clock;
         this.pause = pause;
     }
@@ -72,7 +76,8 @@ public class SeriesSyncService {
             throw new ConflictException("Une synchronisation des séries est déjà en cours.");
         }
         Map<String, List<Book>> bySeries = catalog.seriesBooks();
-        Job started = new Job(bySeries.size(), clock.instant());
+        Long runId = history.start(SyncKind.SERIES_ALL, null, user.email(), bySeries.size());
+        Job started = new Job(bySeries.size(), clock.instant(), runId);
         job = started;
         SeriesSyncJobResponse response = started.toResponse();
         worker.execute(() -> run(bySeries, started));
@@ -89,11 +94,15 @@ public class SeriesSyncService {
         if (key.isEmpty() || members.isEmpty()) {
             throw new NotFoundException();
         }
+        Long runId = history.start(SyncKind.SERIES_ONE, user.libraryId(), user.email(), 1);
         try {
-            catalog.refresh(key, members);
+            catalog.record(runId, members, catalog.refresh(key, members));
         } catch (RuntimeException e) {
             log.warn("Listing the volumes of series '{}' failed: {}", key, e.toString());
+            catalog.record(runId, members, null);
             throw new ServiceUnavailableException("La BnF n'a pas répondu, réessaie plus tard.");
+        } finally {
+            history.finish(runId, false);
         }
         return series.detail(user, name);
     }
@@ -104,13 +113,15 @@ public class SeriesSyncService {
                 if (Thread.currentThread().isInterrupted()) {
                     return;
                 }
+                SeriesCatalogService.Refreshed refreshed = null;
                 try {
-                    SeriesCatalogStatus status = catalog.refresh(entry.getKey(), entry.getValue());
-                    (status == SeriesCatalogStatus.FOUND ? current.found : current.notFound).incrementAndGet();
+                    refreshed = catalog.refresh(entry.getKey(), entry.getValue());
+                    (refreshed.status() == SeriesCatalogStatus.FOUND ? current.found : current.notFound).incrementAndGet();
                 } catch (RuntimeException e) {
                     current.failed.incrementAndGet();
                     log.warn("Listing the volumes of series '{}' failed: {}", entry.getKey(), e.toString());
                 }
+                catalog.record(current.runId, entry.getValue(), refreshed);
                 if (!pause.isZero()) {
                     Thread.sleep(pause);
                 }
@@ -119,6 +130,7 @@ public class SeriesSyncService {
             Thread.currentThread().interrupt();
         } finally {
             current.finish(clock.instant());
+            history.finish(current.runId, Thread.currentThread().isInterrupted());
             log.info("Forced listing of {} series: {} found", current.total, current.found.get());
         }
     }
@@ -126,15 +138,17 @@ public class SeriesSyncService {
     private static final class Job {
         private final int total;
         private final Instant startedAt;
+        private final Long runId;
         private final AtomicInteger found = new AtomicInteger();
         private final AtomicInteger notFound = new AtomicInteger();
         private final AtomicInteger failed = new AtomicInteger();
         private volatile SyncState state = SyncState.RUNNING;
         private volatile Instant finishedAt;
 
-        Job(int total, Instant startedAt) {
+        Job(int total, Instant startedAt, Long runId) {
             this.total = total;
             this.startedAt = startedAt;
+            this.runId = runId;
         }
 
         void finish(Instant at) {

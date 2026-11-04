@@ -12,9 +12,12 @@ import '../series/series_providers.dart';
 /// Administration card that lists again, from the BnF, the volumes of every series without waiting for the
 /// hourly background task.
 class SeriesSyncCard extends ConsumerStatefulWidget {
-  const SeriesSyncCard({super.key, required this.pollInterval});
+  const SeriesSyncCard({super.key, required this.pollInterval, this.onStarted});
 
   final Duration pollInterval;
+
+  /// Called once a synchronisation started, so that the history shows it.
+  final VoidCallback? onStarted;
 
   @override
   ConsumerState<SeriesSyncCard> createState() => _SeriesSyncCardState();
@@ -74,6 +77,7 @@ class _SeriesSyncCardState extends ConsumerState<SeriesSyncCard> {
     });
     try {
       _follow((await _api.startSeriesSync()).data!);
+      widget.onStarted?.call();
     } catch (e) {
       _error = errorMessage(e);
     } finally {

@@ -18,6 +18,8 @@ import 'package:library_api/src/model/metadata_sync_job_response.dart';
 import 'package:library_api/src/model/other_reading_response.dart';
 import 'package:library_api/src/model/page_response_book_metadata_summary.dart';
 import 'package:library_api/src/model/page_response_book_response.dart';
+import 'package:library_api/src/model/page_response_sync_run_item_response.dart';
+import 'package:library_api/src/model/page_response_sync_run_response.dart';
 import 'package:library_api/src/model/reading_request.dart';
 import 'package:library_api/src/model/reading_response.dart';
 import 'package:library_api/src/model/series_detail_response.dart';
@@ -25,6 +27,8 @@ import 'package:library_api/src/model/series_response.dart';
 import 'package:library_api/src/model/series_sync_job_response.dart';
 import 'package:library_api/src/model/series_volume_response.dart';
 import 'package:library_api/src/model/source_metadata_response.dart';
+import 'package:library_api/src/model/sync_run_item_response.dart';
+import 'package:library_api/src/model/sync_run_response.dart';
 
 final _regList = RegExp(r'^List<(.*)>$');
 final _regSet = RegExp(r'^Set<(.*)>$');
@@ -90,6 +94,10 @@ final _regMap = RegExp(r'^Map<String,(.*)>$');
           return PageResponseBookMetadataSummary.fromJson(value as Map<String, dynamic>) as ReturnType;
         case 'PageResponseBookResponse':
           return PageResponseBookResponse.fromJson(value as Map<String, dynamic>) as ReturnType;
+        case 'PageResponseSyncRunItemResponse':
+          return PageResponseSyncRunItemResponse.fromJson(value as Map<String, dynamic>) as ReturnType;
+        case 'PageResponseSyncRunResponse':
+          return PageResponseSyncRunResponse.fromJson(value as Map<String, dynamic>) as ReturnType;
         case 'ReadingRequest':
           return ReadingRequest.fromJson(value as Map<String, dynamic>) as ReturnType;
         case 'ReadingResponse':
@@ -110,10 +118,23 @@ final _regMap = RegExp(r'^Map<String,(.*)>$');
           return SeriesVolumeResponse.fromJson(value as Map<String, dynamic>) as ReturnType;
         case 'SourceMetadataResponse':
           return SourceMetadataResponse.fromJson(value as Map<String, dynamic>) as ReturnType;
+        case 'SyncItemOutcome':
+          
+          
+        case 'SyncKind':
+          
+          
         case 'SyncMode':
           
           
         case 'SyncOutcome':
+          
+          
+        case 'SyncRunItemResponse':
+          return SyncRunItemResponse.fromJson(value as Map<String, dynamic>) as ReturnType;
+        case 'SyncRunResponse':
+          return SyncRunResponse.fromJson(value as Map<String, dynamic>) as ReturnType;
+        case 'SyncRunState':
           
           
         case 'SyncState':

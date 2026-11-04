@@ -28,6 +28,8 @@ import com.gdailly.library.entity.LookupSource;
 import com.gdailly.library.entity.SeriesCatalog;
 import com.gdailly.library.entity.SeriesCatalogStatus;
 import com.gdailly.library.entity.SeriesVolume;
+import com.gdailly.library.entity.SyncItemOutcome;
+import com.gdailly.library.entity.SyncKind;
 import com.gdailly.library.repository.BookRepository;
 import com.gdailly.library.repository.IsbnLookupRepository;
 import com.gdailly.library.repository.SeriesCatalogRepository;
@@ -54,12 +56,14 @@ public class SeriesCatalogService {
     private final SeriesVolumeRepository volumes;
     private final BnfClient bnf;
     private final MetadataSources sources;
+    private final SyncHistoryService history;
     private final TransactionTemplate transaction;
     private final Clock clock;
     private final Duration pause;
 
     SeriesCatalogService(BookRepository books, IsbnLookupRepository isbnCache, SeriesCatalogRepository catalogs,
-            SeriesVolumeRepository volumes, BnfClient bnf, MetadataSources sources, PlatformTransactionManager transactionManager, Clock clock,
+            SeriesVolumeRepository volumes, BnfClient bnf, MetadataSources sources, SyncHistoryService history,
+            PlatformTransactionManager transactionManager, Clock clock,
             @Value("${livre.series.pause:PT1S}") Duration pause) {
         this.books = books;
         this.isbnCache = isbnCache;
@@ -67,6 +71,7 @@ public class SeriesCatalogService {
         this.volumes = volumes;
         this.bnf = bnf;
         this.sources = sources;
+        this.history = history;
         this.transaction = new TransactionTemplate(transactionManager);
         this.clock = clock;
         this.pause = pause;
@@ -86,20 +91,48 @@ public class SeriesCatalogService {
                         .thenComparing(key -> known.containsKey(key) ? known.get(key).getFetchedAt() : Instant.MIN))
                 .limit(PER_RUN)
                 .toList();
-        for (String key : due) {
-            try {
-                refresh(key, bySeries.get(key));
-                Thread.sleep(pause);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                return;
-            } catch (RuntimeException e) {
-                // The BnF is unreachable or answered badly: the series is tried again at the next run.
-                log.warn("Listing the volumes of series '{}' failed: {}", key, e.toString());
-            }
+        if (due.isEmpty()) {
+            return;
         }
-        if (!due.isEmpty()) {
+        Long runId = history.start(SyncKind.SERIES_SCHEDULED, null, null, due.size());
+        boolean interrupted = false;
+        try {
+            for (String key : due) {
+                List<Book> members = bySeries.get(key);
+                Refreshed refreshed;
+                try {
+                    refreshed = refresh(key, members);
+                } catch (RuntimeException e) {
+                    // The BnF is unreachable or answered badly: the series is tried again at the next run.
+                    log.warn("Listing the volumes of series '{}' failed: {}", key, e.toString());
+                    refreshed = null;
+                }
+                record(runId, members, refreshed);
+                Thread.sleep(pause);
+            }
             log.info("Listed the volumes of {} series", due.size());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            interrupted = true;
+        } finally {
+            history.finish(runId, interrupted);
+        }
+    }
+
+    /** Writes in the history what listing a series gave; {@code refreshed} null when the BnF failed. */
+    void record(Long runId, List<Book> members, Refreshed refreshed) {
+        String label = members.getFirst().getSeries();
+        if (refreshed == null) {
+            history.record(runId, label, SyncItemOutcome.FAILED, "La BnF n'a pas répondu");
+            return;
+        }
+        switch (refreshed.status()) {
+            case FOUND -> history.record(runId, label, SyncItemOutcome.FOUND,
+                    refreshed.volumes() + (refreshed.volumes() > 1 ? " tomes listés" : " tome listé"));
+            case NOT_FOUND -> history.record(runId, label, SyncItemOutcome.NOT_FOUND,
+                    "La notice BnF de la série ne liste aucun tome");
+            case NO_REFERENCE -> history.record(runId, label, SyncItemOutcome.NO_REFERENCE,
+                    "Aucun livre de la série n'est rattaché à une notice de série BnF");
         }
     }
 
@@ -123,7 +156,7 @@ public class SeriesCatalogService {
      * Lists the volumes of one series and replaces what was known of it. One series at a time, so that the scheduled
      * run and a refresh forced by the administrator do not write the same series together.
      */
-    synchronized SeriesCatalogStatus refresh(String key, List<Book> members) {
+    synchronized Refreshed refresh(String key, List<Book> members) {
         Optional<String> ref = seriesRef(members);
         List<BnfClient.SeriesVolume> found = ref.map(bnf::fetchSeriesVolumes).orElse(List.of());
         List<SeriesVolume> chosen = choose(key, found);
@@ -141,7 +174,11 @@ public class SeriesCatalogService {
             volumes.flush();
             volumes.saveAll(chosen);
         });
-        return status;
+        return new Refreshed(status, chosen.size());
+    }
+
+    /** How listing a series went, and how many volumes the BnF listed. */
+    record Refreshed(SeriesCatalogStatus status, int volumes) {
     }
 
     /** The BnF series record linked by the cached answer of a volume of the series. */

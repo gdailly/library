@@ -10,6 +10,7 @@ import '../../core/theme.dart';
 import '../../shared/message_box.dart';
 import '../books/books_providers.dart';
 import 'series_sync_card.dart';
+import 'sync_history.dart';
 
 /// Overview of the metadata administration: books, ISBN cache and the full resynchronisation.
 final metadataAdminProvider = FutureProvider.autoDispose<MetadataAdminResponse>((ref) async {
@@ -35,6 +36,8 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
   bool _busy = false;
   String? _error;
   String? _info;
+
+  final _history = GlobalKey<SyncHistoryCardState>();
 
   AdminApi get _api => ref.read(libraryApiProvider).getAdminApi();
 
@@ -90,6 +93,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
   Future<void> _startSync(SyncMode mode) => _run(() async {
         final job = (await _api.startMetadataSync(mode: mode)).data!;
         _follow(job);
+        unawaited(_history.currentState?.refresh());
       });
 
   Future<void> _clear(CacheScope scope) async {
@@ -223,7 +227,17 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
             const SizedBox(height: 16),
             _AdminCard(
               title: 'Tomes des séries',
-              children: [SeriesSyncCard(pollInterval: widget.pollInterval)],
+              children: [
+                SeriesSyncCard(
+                  pollInterval: widget.pollInterval,
+                  onStarted: () => unawaited(_history.currentState?.refresh()),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            _AdminCard(
+              title: 'Historique des synchronisations',
+              children: [SyncHistoryCard(key: _history, pollInterval: widget.pollInterval)],
             ),
             const SizedBox(height: 16),
             _AdminCard(

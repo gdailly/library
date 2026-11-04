@@ -40,6 +40,8 @@ lib/src/model/metadata_sync_job_response.dart
 lib/src/model/other_reading_response.dart
 lib/src/model/page_response_book_metadata_summary.dart
 lib/src/model/page_response_book_response.dart
+lib/src/model/page_response_sync_run_item_response.dart
+lib/src/model/page_response_sync_run_response.dart
 lib/src/model/reading_request.dart
 lib/src/model/reading_response.dart
 lib/src/model/reading_status.dart
@@ -49,7 +51,12 @@ lib/src/model/series_response.dart
 lib/src/model/series_sync_job_response.dart
 lib/src/model/series_volume_response.dart
 lib/src/model/source_metadata_response.dart
+lib/src/model/sync_item_outcome.dart
+lib/src/model/sync_kind.dart
 lib/src/model/sync_mode.dart
 lib/src/model/sync_outcome.dart
+lib/src/model/sync_run_item_response.dart
+lib/src/model/sync_run_response.dart
+lib/src/model/sync_run_state.dart
 lib/src/model/sync_state.dart
 pubspec.yaml

@@ -74,6 +74,8 @@ Bibliothèque **partagée** : les livres sont communs ; rôles OWNER (invite/ret
 | `reading` | book_id, user_id, status (TO_READ, READING, READ, ABANDONED), rating (1-5, null), review, started_on, finished_on — unique (book_id, user_id) |
 | `series_catalog` | series_key (PK, nom normalisé), status (FOUND, NOT_FOUND, NO_REFERENCE), source_ref (notice BnF de la série), fetched_at |
 | `series_volume` | series_key, number (PK ensemble), title, isbn13, year — tomes listés par la BnF, communs à toutes les bibliothèques |
+| `sync_run` | id, kind (METADATA_FILL, METADATA_FETCH, METADATA_BOOK, SERIES_ALL, SERIES_SCHEDULED, SERIES_ONE), library_id, started_by, state (RUNNING, DONE, INTERRUPTED), total, processed, succeeded, unchanged, not_found, failed, started_at, finished_at — historique purgé après 30 jours |
+| `sync_run_item` | id, run_id, label (livre ou série), outcome, detail, created_at |
 | `isbn_lookup` | isbn13 (PK), source (OPEN_LIBRARY, GOOGLE_BOOKS, BNF, NOT_FOUND), payload (JSON, réponse brute de chaque source), cover_key, fetched_at |
 
 ## Recherche ISBN (cache obligatoire)
@@ -104,6 +106,7 @@ Normaliser l'ISBN en 13 chiffres (convertir les ISBN-10). Ne jamais appeler les 
 | GET / POST / DELETE | `/library/members` | Membres (OWNER seulement pour écrire) |
 | GET / POST / DELETE | `/admin/metadata`, `/admin/metadata/sync`, `/admin/metadata/books`, `/admin/metadata/books/{id}` (`/sync`, `/apply`), `/admin/metadata/cache` | Administration des métadonnées : comparaison des sources livre par livre, resynchronisation, purge du cache ISBN (administrateur seulement) |
 | GET / POST | `/admin/series/sync`, `/admin/series/sync-one?name=` | Synchronisation forcée des tomes des séries depuis la BnF : toutes les séries en arrière-plan, ou une série immédiatement (administrateur seulement) |
+| GET | `/admin/syncs`, `/admin/syncs/{id}`, `/admin/syncs/{id}/items` | Historique des synchronisations (30 jours) et avancement en direct, élément par élément (administrateur seulement) |
 
 ## Reconnaissance IA (lots 2-3, désactivée par défaut)
 

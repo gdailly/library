@@ -53,7 +53,8 @@ class MetadataSyncServiceTest {
     private final IsbnLookupService lookups = mock(IsbnLookupService.class);
     private final CoverService covers = mock(CoverService.class);
     private final BookService bookService = mock(BookService.class);
-    private final MetadataSyncService service = new MetadataSyncService(books, isbnCache, lookups, covers, bookService,
+    private final SyncHistoryService history = mock(SyncHistoryService.class);
+    private final MetadataSyncService service = new MetadataSyncService(books, isbnCache, lookups, covers, bookService, history,
             mock(PlatformTransactionManager.class), Clock.fixed(Instant.parse("2026-11-01T20:00:00Z"), ZoneOffset.UTC),
             new LivreProperties(null, null, null,
                     new LivreProperties.Isbn(null, null, null, null, null, null, null, Duration.ZERO), null));

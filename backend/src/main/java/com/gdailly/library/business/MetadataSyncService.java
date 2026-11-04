@@ -34,6 +34,8 @@ import com.gdailly.library.dto.SyncOutcome;
 import com.gdailly.library.dto.SyncState;
 import com.gdailly.library.entity.Book;
 import com.gdailly.library.entity.LookupSource;
+import com.gdailly.library.entity.SyncItemOutcome;
+import com.gdailly.library.entity.SyncKind;
 import com.gdailly.library.exception.BadRequestException;
 import com.gdailly.library.exception.ConflictException;
 import com.gdailly.library.exception.ForbiddenException;
@@ -63,6 +65,7 @@ public class MetadataSyncService {
     private final IsbnLookupService lookups;
     private final CoverService covers;
     private final BookService bookService;
+    private final SyncHistoryService history;
     private final TransactionTemplate transaction;
     private final Clock clock;
     private final Duration pause;
@@ -70,13 +73,14 @@ public class MetadataSyncService {
     private final Map<Long, Job> jobs = new ConcurrentHashMap<>();
 
     MetadataSyncService(BookRepository books, IsbnLookupRepository isbnCache, IsbnLookupService lookups,
-            CoverService covers, BookService bookService, PlatformTransactionManager transactionManager, Clock clock,
-            LivreProperties properties) {
+            CoverService covers, BookService bookService, SyncHistoryService history,
+            PlatformTransactionManager transactionManager, Clock clock, LivreProperties properties) {
         this.books = books;
         this.isbnCache = isbnCache;
         this.lookups = lookups;
         this.covers = covers;
         this.bookService = bookService;
+        this.history = history;
         this.transaction = new TransactionTemplate(transactionManager);
         this.clock = clock;
         this.pause = properties.isbn().syncPause();
@@ -127,7 +131,9 @@ public class MetadataSyncService {
             throw new ConflictException("Une resynchronisation est déjà en cours.");
         }
         List<Long> ids = transaction.execute(status -> books.findIdsWithIsbn(libraryId));
-        Job job = new Job(ids.size(), Instant.now(clock));
+        Long runId = history.start(mode == SyncMode.FETCH ? SyncKind.METADATA_FETCH : SyncKind.METADATA_FILL, libraryId,
+                user.email(), ids.size());
+        Job job = new Job(ids.size(), Instant.now(clock), runId);
         jobs.put(libraryId, job);
         MetadataSyncJobResponse started = job.toResponse();
         worker.execute(() -> run(libraryId, ids, job, mode));
@@ -144,7 +150,18 @@ public class MetadataSyncService {
         if (snapshot.isbn13() == null) {
             throw new BadRequestException("Ce livre n'a pas d'ISBN : il ne peut pas être resynchronisé.");
         }
-        Result result = sync(user.libraryId(), bookId, snapshot, mode, source);
+        Long runId = history.start(SyncKind.METADATA_BOOK, user.libraryId(), user.email(), 1);
+        Result result;
+        try {
+            result = sync(user.libraryId(), bookId, snapshot, mode, source);
+        } catch (RuntimeException e) {
+            history.record(runId, snapshot.title(), SyncItemOutcome.FAILED, failure(e));
+            history.finish(runId, false);
+            throw e;
+        }
+        history.record(runId, snapshot.title(), itemOutcome(result.outcome()),
+                describe(result, source == null ? null : source.name()));
+        history.finish(runId, false);
         return new BookSyncResponse(result.outcome(), result.changedFields(), bookService.get(user, bookId));
     }
 
@@ -163,35 +180,78 @@ public class MetadataSyncService {
             Thread.currentThread().interrupt();
         } finally {
             job.finish(Instant.now(clock));
+            history.finish(job.runId, Thread.currentThread().isInterrupted());
         }
     }
 
     private void syncInBackground(Long libraryId, Long id, Job job, SyncMode mode) {
+        String label = "Livre n°" + id;
+        SyncItemOutcome outcome;
+        String detail;
         try {
             Snapshot snapshot = snapshot(libraryId, id);
+            label = snapshot.title();
             if (snapshot.isbn13() == null) {
-                job.unchanged.incrementAndGet();
-                return;
-            }
-            switch (sync(libraryId, id, snapshot, mode, null).outcome()) {
-                case UPDATED -> job.updated.incrementAndGet();
-                case UNCHANGED -> job.unchanged.incrementAndGet();
-                case NOT_FOUND -> job.notFound.incrementAndGet();
+                outcome = SyncItemOutcome.UNCHANGED;
+                detail = "Pas d'ISBN";
+            } else {
+                Result result = sync(libraryId, id, snapshot, mode, null);
+                outcome = itemOutcome(result.outcome());
+                detail = describe(result, null);
             }
         } catch (NotFoundException e) {
-            job.unchanged.incrementAndGet(); // deleted meanwhile
-        } catch (ServiceUnavailableException e) {
-            job.failed.incrementAndGet();
+            outcome = SyncItemOutcome.UNCHANGED;
+            detail = "Supprimé entre-temps";
         } catch (RuntimeException e) {
-            job.failed.incrementAndGet();
-            log.warn("Resynchronisation of book {} failed", id, e);
+            if (!(e instanceof ServiceUnavailableException)) {
+                log.warn("Resynchronisation of book {} failed", id, e);
+            }
+            outcome = SyncItemOutcome.FAILED;
+            detail = failure(e);
         }
+        switch (outcome) {
+            case UPDATED -> job.updated.incrementAndGet();
+            case NOT_FOUND -> job.notFound.incrementAndGet();
+            case FAILED -> job.failed.incrementAndGet();
+            default -> job.unchanged.incrementAndGet();
+        }
+        history.record(job.runId, label, outcome, detail);
     }
+
+    private static SyncItemOutcome itemOutcome(SyncOutcome outcome) {
+        return switch (outcome) {
+            case UPDATED -> SyncItemOutcome.UPDATED;
+            case UNCHANGED -> SyncItemOutcome.UNCHANGED;
+            case NOT_FOUND -> SyncItemOutcome.NOT_FOUND;
+        };
+    }
+
+    /** What the history says of a resynchronised book, in French. */
+    static String describe(Result result, String source) {
+        String from = source == null ? "" : " (source " + source + ")";
+        return switch (result.outcome()) {
+            case UPDATED -> "Modifié" + from + " : " + String.join(", ", result.changedFields().stream()
+                    .map(field -> FIELD_LABELS.getOrDefault(field, field)).toList());
+            case UNCHANGED -> "Rien à changer" + from;
+            case NOT_FOUND -> "Aucune source ne connaît cet ISBN" + from;
+        };
+    }
+
+    private static String failure(RuntimeException e) {
+        return e instanceof ServiceUnavailableException && e.getMessage() != null ? e.getMessage()
+                : "Erreur inattendue (" + e.getClass().getSimpleName() + ")";
+    }
+
+    private static final Map<String, String> FIELD_LABELS = Map.ofEntries(
+            Map.entry("title", "titre"), Map.entry("subtitle", "sous-titre"), Map.entry("series", "série"),
+            Map.entry("seriesNumber", "tome"), Map.entry("authors", "auteurs"), Map.entry("publisher", "éditeur"),
+            Map.entry("year", "année"), Map.entry("pages", "pages"), Map.entry("language", "langue"),
+            Map.entry("summary", "résumé"), Map.entry("cover", "couverture"));
 
     private Snapshot snapshot(Long libraryId, Long bookId) {
         return transaction.execute(status -> {
             Book book = books.findByIdAndLibraryId(bookId, libraryId).orElseThrow(NotFoundException::new);
-            return new Snapshot(book.getIsbn13(), book.getCoverKey());
+            return new Snapshot(book.getIsbn13(), book.getCoverKey(), book.getTitle());
         });
     }
 
@@ -281,16 +341,17 @@ public class MetadataSyncService {
         void apply(String name, T current, T value, Consumer<T> setter);
     }
 
-    private record Snapshot(String isbn13, String coverKey) {
+    private record Snapshot(String isbn13, String coverKey, String title) {
     }
 
-    private record Result(SyncOutcome outcome, List<String> changedFields) {
+    record Result(SyncOutcome outcome, List<String> changedFields) {
     }
 
     /** Progress of a full resynchronisation, updated by the worker and read by the requests. */
     private static final class Job {
         private final int total;
         private final Instant startedAt;
+        private final Long runId;
         private final AtomicInteger updated = new AtomicInteger();
         private final AtomicInteger unchanged = new AtomicInteger();
         private final AtomicInteger notFound = new AtomicInteger();
@@ -298,9 +359,10 @@ public class MetadataSyncService {
         private volatile SyncState state = SyncState.RUNNING;
         private volatile Instant finishedAt;
 
-        Job(int total, Instant startedAt) {
+        Job(int total, Instant startedAt, Long runId) {
             this.total = total;
             this.startedAt = startedAt;
+            this.runId = runId;
         }
 
         void finish(Instant at) {

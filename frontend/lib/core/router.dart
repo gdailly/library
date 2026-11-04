@@ -7,6 +7,8 @@ import '../features/add/scan_screen.dart';
 import '../features/admin/admin_screen.dart';
 import '../features/admin/metadata_book_screen.dart';
 import '../features/admin/metadata_books_screen.dart';
+import '../features/admin/sync_history.dart';
+import '../features/admin/sync_run_screen.dart';
 import '../features/auth/auth_controller.dart';
 import '../features/auth/sign_in_screen.dart';
 import '../features/books/book_detail_screen.dart';
@@ -58,6 +60,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/admin/books/:id',
         builder: (_, state) => MetadataBookScreen(bookId: int.parse(state.pathParameters['id']!)),
+      ),
+      GoRoute(path: '/admin/syncs', builder: (_, _) => const SyncRunsScreen()),
+      GoRoute(
+        path: '/admin/syncs/:id',
+        builder: (_, state) => SyncRunScreen(runId: int.parse(state.pathParameters['id']!)),
       ),
       GoRoute(path: '/add', builder: (_, state) => AddBookScreen(isbn: state.uri.queryParameters['isbn'])),
       GoRoute(
