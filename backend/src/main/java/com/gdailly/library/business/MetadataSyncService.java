@@ -33,6 +33,7 @@ import com.gdailly.library.dto.SyncMode;
 import com.gdailly.library.dto.SyncOutcome;
 import com.gdailly.library.dto.SyncState;
 import com.gdailly.library.entity.Book;
+import com.gdailly.library.entity.Series;
 import com.gdailly.library.entity.LookupSource;
 import com.gdailly.library.entity.SyncItemOutcome;
 import com.gdailly.library.entity.SyncKind;
@@ -41,7 +42,7 @@ import com.gdailly.library.exception.ConflictException;
 import com.gdailly.library.exception.ForbiddenException;
 import com.gdailly.library.exception.NotFoundException;
 import com.gdailly.library.exception.ServiceUnavailableException;
-import com.gdailly.library.repository.BookRepository;
+import com.gdailly.library.repository.LibraryBookRepository;
 import com.gdailly.library.repository.IsbnLookupRepository;
 import com.gdailly.library.security.CurrentUser;
 
@@ -60,7 +61,8 @@ public class MetadataSyncService {
     /** A resynchronisation reuses the answers fetched less than a day ago, so that it can be resumed cheaply. */
     static final Duration REUSE_RECENT_LOOKUPS = Duration.ofDays(1);
 
-    private final BookRepository books;
+    private final LibraryBookRepository books;
+    private final SeriesRegistry seriesRegistry;
     private final IsbnLookupRepository isbnCache;
     private final IsbnLookupService lookups;
     private final CoverService covers;
@@ -72,10 +74,11 @@ public class MetadataSyncService {
     private final ExecutorService worker = Executors.newSingleThreadExecutor(Thread.ofVirtual().name("metadata-sync").factory());
     private final Map<Long, Job> jobs = new ConcurrentHashMap<>();
 
-    MetadataSyncService(BookRepository books, IsbnLookupRepository isbnCache, IsbnLookupService lookups,
+    MetadataSyncService(LibraryBookRepository books, SeriesRegistry seriesRegistry, IsbnLookupRepository isbnCache, IsbnLookupService lookups,
             CoverService covers, BookService bookService, SyncHistoryService history,
             PlatformTransactionManager transactionManager, Clock clock, LivreProperties properties) {
         this.books = books;
+        this.seriesRegistry = seriesRegistry;
         this.isbnCache = isbnCache;
         this.lookups = lookups;
         this.covers = covers;
@@ -96,7 +99,7 @@ public class MetadataSyncService {
         requireAdmin(user);
         return new MetadataAdminResponse(
                 books.countByLibraryId(user.libraryId()),
-                books.findIdsWithIsbn(user.libraryId()).size(),
+                books.findBookIdsWithIsbn(user.libraryId()).size(),
                 isbnCache.count(),
                 isbnCache.countBySource(LookupSource.NOT_FOUND),
                 job(user.libraryId()));
@@ -130,7 +133,7 @@ public class MetadataSyncService {
         if (current != null && current.state == SyncState.RUNNING) {
             throw new ConflictException("Une resynchronisation est déjà en cours.");
         }
-        List<Long> ids = transaction.execute(status -> books.findIdsWithIsbn(libraryId));
+        List<Long> ids = transaction.execute(status -> books.findBookIdsWithIsbn(libraryId));
         Long runId = history.start(mode == SyncMode.FETCH ? SyncKind.METADATA_FETCH : SyncKind.METADATA_FILL, libraryId,
                 user.email(), ids.size());
         Job job = new Job(ids.size(), Instant.now(clock), runId);
@@ -250,7 +253,7 @@ public class MetadataSyncService {
 
     private Snapshot snapshot(Long libraryId, Long bookId) {
         return transaction.execute(status -> {
-            Book book = books.findByIdAndLibraryId(bookId, libraryId).orElseThrow(NotFoundException::new);
+            Book book = books.findByLibraryIdAndBookId(libraryId, bookId).orElseThrow(NotFoundException::new).getBook();
             return new Snapshot(book.getIsbn13(), book.getCoverKey(), book.getTitle());
         });
     }
@@ -273,19 +276,34 @@ public class MetadataSyncService {
         }
         String cover = coverKey;
         return transaction.execute(status -> {
-            Book book = books.findByIdAndLibraryId(bookId, libraryId).orElseThrow(NotFoundException::new);
-            List<String> changed = apply(book, found.get(), cover, mode, null);
+            Book book = books.findByLibraryIdAndBookId(libraryId, bookId).orElseThrow(NotFoundException::new).getBook();
+            List<String> changed = apply(book, found.get(), cover, mode, null, seriesRegistry::place);
             return new Result(changed.isEmpty() ? SyncOutcome.UNCHANGED : SyncOutcome.UPDATED, changed);
         });
     }
 
     /** Copies the found values into the book; a value the sources do not know never erases the book's. */
     static List<String> apply(Book book, BookMetadata found, String coverKey, SyncMode mode) {
-        return apply(book, found, coverKey, mode, null);
+        return apply(book, found, coverKey, mode, null, MetadataSyncService::placeUnsaved);
     }
 
-    /** Like {@link #apply(Book, BookMetadata, String, SyncMode)} for the named fields only ({@code only} null: all). */
-    static List<String> apply(Book book, BookMetadata found, String coverKey, SyncMode mode, Set<String> only) {
+    /** Puts a book in a series that is not saved: for tests, which have no database. */
+    static void placeUnsaved(Book book, String name, Integer number) {
+        book.placeInSeries(name == null ? null : new Series(name, SeriesService.key(name)), number);
+    }
+
+    /** Puts a book in the series of a name (none when null), as volume {@code number}. */
+    @FunctionalInterface
+    interface SeriesPlacer {
+        void place(Book book, String name, Integer number);
+    }
+
+    /**
+     * Like {@link #apply(Book, BookMetadata, String, SyncMode)} for the named fields only ({@code only} null: all),
+     * the series placed by {@code placer}.
+     */
+    static List<String> apply(Book book, BookMetadata found, String coverKey, SyncMode mode, Set<String> only,
+            SeriesPlacer placer) {
         List<String> changed = new ArrayList<>();
         Field<String> text = (name, current, value, setter) -> {
             if (only == null || only.contains(name)) {
@@ -299,8 +317,13 @@ public class MetadataSyncService {
         };
         text.apply("title", book.getTitle(), limit(found.title(), 500), book::setTitle);
         text.apply("subtitle", book.getSubtitle(), limit(found.subtitle(), 500), book::setSubtitle);
-        text.apply("series", book.getSeries(), limit(found.series(), 300), book::setSeries);
-        number.apply("seriesNumber", book.getSeriesNumber(), found.seriesNumber(), book::setSeriesNumber);
+        String[] series = {book.getSeriesName()};
+        Integer[] seriesNumber = {book.getSeriesNumber()};
+        text.apply("series", series[0], limit(found.series(), 300), value -> series[0] = value);
+        number.apply("seriesNumber", seriesNumber[0], found.seriesNumber(), value -> seriesNumber[0] = value);
+        if (changed.contains("series") || changed.contains("seriesNumber")) {
+            placer.place(book, series[0], seriesNumber[0]);
+        }
         text.apply("authors", book.getAuthors(), limit(found.authors(), 1000), book::setAuthors);
         text.apply("publisher", book.getPublisher(), limit(found.publisher(), 300), book::setPublisher);
         number.apply("year", book.getYear(), found.year(), book::setYear);

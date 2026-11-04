@@ -16,6 +16,7 @@ public interface IsbnLookupMapper {
     @Mapping(target = "source", constant = "LIBRARY")
     @Mapping(target = "existingBookId", source = "id")
     @Mapping(target = "coverUrl", ignore = true)
+    @Mapping(target = "series", source = "seriesName")
     IsbnLookupResponse fromBook(Book book);
 
     @Mapping(target = "isbn13", source = "isbn13")

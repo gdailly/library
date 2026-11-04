@@ -30,6 +30,7 @@ import com.gdailly.library.config.LivreProperties;
 import com.gdailly.library.dto.IsbnLookupResponse;
 import com.gdailly.library.dto.MetadataSource;
 import com.gdailly.library.entity.Book;
+import com.gdailly.library.entity.LibraryBook;
 import com.gdailly.library.entity.IsbnLookup;
 import com.gdailly.library.entity.LookupSource;
 import com.gdailly.library.entity.Role;
@@ -37,7 +38,7 @@ import com.gdailly.library.exception.BadRequestException;
 import com.gdailly.library.exception.NotFoundException;
 import com.gdailly.library.exception.ServiceUnavailableException;
 import com.gdailly.library.mapper.IsbnLookupMapperImpl;
-import com.gdailly.library.repository.BookRepository;
+import com.gdailly.library.repository.LibraryBookRepository;
 import com.gdailly.library.repository.IsbnLookupRepository;
 import com.gdailly.library.security.CurrentUser;
 
@@ -51,7 +52,7 @@ class IsbnLookupServiceTest {
     private static final BookMetadata PETIT_PRINCE =
             new BookMetadata("Le Petit Prince", null, "Antoine de Saint-Exupéry", null, 1943, 96, null, null, null);
 
-    private final BookRepository books = mock(BookRepository.class);
+    private final LibraryBookRepository books = mock(LibraryBookRepository.class);
     private final IsbnLookupRepository cache = mock(IsbnLookupRepository.class);
     private final OpenLibraryClient openLibrary = mock(OpenLibraryClient.class);
     private final GoogleBooksClient googleBooks = mock(GoogleBooksClient.class);
@@ -63,7 +64,7 @@ class IsbnLookupServiceTest {
 
     @BeforeEach
     void setUp() {
-        when(books.findByLibraryIdAndIsbn13(1L, ISBN)).thenReturn(Optional.empty());
+        when(books.findByLibraryIdAndBookIsbn13(1L, ISBN)).thenReturn(Optional.empty());
         when(cache.findById(ISBN)).thenReturn(Optional.empty());
         when(openLibrary.fetch(ISBN)).thenReturn(Optional.empty());
         when(googleBooks.fetch(ISBN)).thenReturn(Optional.empty());
@@ -86,11 +87,11 @@ class IsbnLookupServiceTest {
 
     @Test
     void answersFromLibraryWithoutCacheNorApi() {
-        Book book = new Book(1L, 7L);
+        Book book = new Book();
         book.setIsbn13(ISBN);
         book.setTitle("Le Petit Prince");
         ReflectionTestUtils.setField(book, "id", 42L);
-        when(books.findByLibraryIdAndIsbn13(1L, ISBN)).thenReturn(Optional.of(book));
+        when(books.findByLibraryIdAndBookIsbn13(1L, ISBN)).thenReturn(Optional.of(new LibraryBook(1L, book, 7L)));
 
         IsbnLookupResponse response = service.lookup(USER, ISBN);
 

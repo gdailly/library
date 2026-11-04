@@ -30,13 +30,14 @@ import com.gdailly.library.config.LivreProperties;
 import com.gdailly.library.dto.CoverResponse;
 import com.gdailly.library.dto.CoverSize;
 import com.gdailly.library.entity.Book;
+import com.gdailly.library.entity.LibraryBook;
 import com.gdailly.library.entity.IsbnLookup;
 import com.gdailly.library.entity.LookupSource;
 import com.gdailly.library.entity.Role;
 import com.gdailly.library.exception.BadRequestException;
 import com.gdailly.library.exception.ForbiddenException;
 import com.gdailly.library.exception.NotFoundException;
-import com.gdailly.library.repository.BookRepository;
+import com.gdailly.library.repository.LibraryBookRepository;
 import com.gdailly.library.repository.IsbnLookupRepository;
 import com.gdailly.library.security.CoverUrlSigner;
 import com.gdailly.library.security.CurrentUser;
@@ -51,7 +52,7 @@ class CoverServiceTest {
     private static final String KEY = "c".repeat(64);
     private static final String IMAGE_URL = "https://covers.example.com/1.jpg";
 
-    private final BookRepository books = mock(BookRepository.class);
+    private final LibraryBookRepository books = mock(LibraryBookRepository.class);
     private final IsbnLookupRepository isbnCache = mock(IsbnLookupRepository.class);
     private final CoverStore store = mock(CoverStore.class);
     private final CoverDownloader downloader = mock(CoverDownloader.class);
@@ -136,7 +137,7 @@ class CoverServiceTest {
     @Test
     void uploadStoresImageAndReturnsSignedUrls() {
         Book book = book(5L);
-        when(books.findByIdAndLibraryId(5L, 1L)).thenReturn(Optional.of(book));
+        when(books.findByLibraryIdAndBookId(1L, 5L)).thenReturn(Optional.of(held(book)));
         when(store.store(any())).thenReturn(KEY);
 
         CoverResponse urls = service.upload(USER, 5L, new byte[] {1, 2});
@@ -148,7 +149,7 @@ class CoverServiceTest {
 
     @Test
     void uploadRefusesEmptyTooLargeOrUnreadableImages() {
-        when(books.findByIdAndLibraryId(5L, 1L)).thenReturn(Optional.of(book(5L)));
+        when(books.findByLibraryIdAndBookId(1L, 5L)).thenReturn(Optional.of(held(book(5L))));
         when(store.store(any())).thenThrow(new IllegalArgumentException("not an image"));
 
         assertThatThrownBy(() -> service.upload(USER, 5L, new byte[0])).isInstanceOf(BadRequestException.class);
@@ -158,7 +159,7 @@ class CoverServiceTest {
 
     @Test
     void uploadAcceptsImageOfExactlyTheMaximumSize() {
-        when(books.findByIdAndLibraryId(5L, 1L)).thenReturn(Optional.of(book(5L)));
+        when(books.findByLibraryIdAndBookId(1L, 5L)).thenReturn(Optional.of(held(book(5L))));
         when(store.store(any())).thenReturn(KEY);
 
         assertThat(service.upload(USER, 5L, new byte[10])).isNotNull();
@@ -188,9 +189,13 @@ class CoverServiceTest {
     }
 
     private static Book book(long id) {
-        Book book = new Book(1L, 7L);
+        Book book = new Book();
         ReflectionTestUtils.setField(book, "id", id);
         return book;
+    }
+
+    private static LibraryBook held(Book book) {
+        return new LibraryBook(1L, book, 7L);
     }
 
     private static BookMetadata metadataWithCover(String coverUrl) {

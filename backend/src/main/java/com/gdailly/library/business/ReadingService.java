@@ -8,7 +8,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.gdailly.library.dto.ReadingRequest;
 import com.gdailly.library.dto.ReadingResponse;
-import com.gdailly.library.entity.Book;
 import com.gdailly.library.entity.Reading;
 import com.gdailly.library.entity.ReadingStatus;
 import com.gdailly.library.exception.BadRequestException;
@@ -34,9 +33,9 @@ public class ReadingService {
 
     @Transactional
     public ReadingResponse save(CurrentUser user, Long bookId, ReadingRequest request) {
-        Book book = books.find(user, bookId);
-        Reading reading = readings.findByBookIdAndUserId(book.getId(), user.userId())
-                .orElseGet(() -> new Reading(book.getId(), user.userId()));
+        Long id = books.find(user, bookId).getBook().getId();
+        Reading reading = readings.findByBookIdAndUserId(id, user.userId())
+                .orElseGet(() -> new Reading(id, user.userId()));
         readingMapper.updateEntity(request, reading);
 
         LocalDate today = LocalDate.now(clock);

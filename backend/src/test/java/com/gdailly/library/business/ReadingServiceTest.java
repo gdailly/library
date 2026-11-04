@@ -21,6 +21,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import com.gdailly.library.dto.ReadingRequest;
 import com.gdailly.library.dto.ReadingResponse;
 import com.gdailly.library.entity.Book;
+import com.gdailly.library.entity.LibraryBook;
 import com.gdailly.library.entity.Reading;
 import com.gdailly.library.entity.ReadingStatus;
 import com.gdailly.library.entity.Role;
@@ -43,9 +44,9 @@ class ReadingServiceTest {
 
     @BeforeEach
     void setUp() {
-        Book book = new Book(1L, 7L);
+        Book book = new Book();
         ReflectionTestUtils.setField(book, "id", 42L);
-        when(books.find(USER, 42L)).thenReturn(book);
+        when(books.find(USER, 42L)).thenReturn(new LibraryBook(1L, book, 7L));
         when(readings.findByBookIdAndUserId(42L, 7L)).thenReturn(Optional.empty());
         when(readings.save(any())).thenAnswer(call -> call.getArgument(0));
     }

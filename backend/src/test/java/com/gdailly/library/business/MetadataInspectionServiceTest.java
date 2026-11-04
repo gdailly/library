@@ -25,13 +25,15 @@ import com.gdailly.library.dto.ApplyMetadataRequest;
 import com.gdailly.library.dto.BookMetadataSummary;
 import com.gdailly.library.dto.MetadataSource;
 import com.gdailly.library.entity.Book;
+import com.gdailly.library.entity.LibraryBook;
 import com.gdailly.library.entity.IsbnLookup;
 import com.gdailly.library.entity.LookupSource;
 import com.gdailly.library.entity.Role;
 import com.gdailly.library.exception.ConflictException;
 import com.gdailly.library.exception.ForbiddenException;
 import com.gdailly.library.mapper.IsbnLookupMapperImpl;
-import com.gdailly.library.repository.BookRepository;
+import com.gdailly.library.repository.LibraryBookRepository;
+import com.gdailly.library.repository.SeriesRepository;
 import com.gdailly.library.repository.IsbnLookupRepository;
 import com.gdailly.library.security.CurrentUser;
 
@@ -46,14 +48,14 @@ class MetadataInspectionServiceTest {
     private static final BookMetadata GOOGLE = new BookMetadata("L’étranger", null, "Albert Camus", "Folio", 1942,
             159, "fr", "Aujourd'hui, maman est morte.", "https://books.google.com/1");
 
-    private final BookRepository books = mock(BookRepository.class);
+    private final LibraryBookRepository books = mock(LibraryBookRepository.class);
     private final IsbnLookupRepository cache = mock(IsbnLookupRepository.class);
     private final OpenLibraryClient openLibrary = mock(OpenLibraryClient.class);
     private final GoogleBooksClient googleBooks = mock(GoogleBooksClient.class);
     private final BnfClient bnf = mock(BnfClient.class);
     private final CoverService covers = mock(CoverService.class);
     private final BookService bookService = mock(BookService.class);
-    private final MetadataInspectionService service = new MetadataInspectionService(books, cache,
+    private final MetadataInspectionService service = new MetadataInspectionService(books, new SeriesRegistry(mock(SeriesRepository.class)), cache,
             new MetadataSources(openLibrary, googleBooks, bnf, JsonMapper.builder().build()), covers, bookService,
             new IsbnLookupMapperImpl(), mock(PlatformTransactionManager.class));
 
@@ -74,7 +76,8 @@ class MetadataInspectionServiceTest {
     @Test
     void listsTheBooksWithTheSourcesThatKnowThem() {
         Book book = book();
-        when(books.findByLibraryIdAndIsbn13IsNotNull(1L, Sort.by("title", "id"))).thenReturn(List.of(book));
+        when(books.findByLibraryIdAndBookIsbn13IsNotNull(1L, Sort.by("book.title", "book.id")))
+                .thenReturn(List.of(new LibraryBook(1L, book, 7L)));
         IsbnLookup entry = cached();
         when(cache.findAllById(List.of(ISBN))).thenReturn(List.of(entry));
 
@@ -88,7 +91,7 @@ class MetadataInspectionServiceTest {
     @Test
     void copiesTheChosenFieldsOfOneSource() {
         Book book = book();
-        when(books.findByIdAndLibraryId(5L, 1L)).thenReturn(Optional.of(book));
+        when(books.findByLibraryIdAndBookId(1L, 5L)).thenReturn(Optional.of(new LibraryBook(1L, book, 7L)));
         IsbnLookup entry = cached();
         when(cache.findById(ISBN)).thenReturn(Optional.of(entry));
         when(covers.importFromUrl("https://books.google.com/1")).thenReturn(Optional.of("k".repeat(64)));
@@ -104,7 +107,7 @@ class MetadataInspectionServiceTest {
 
     @Test
     void refusesASourceWithoutStoredAnswer() {
-        when(books.findByIdAndLibraryId(5L, 1L)).thenReturn(Optional.of(book()));
+        when(books.findByLibraryIdAndBookId(1L, 5L)).thenReturn(Optional.of(new LibraryBook(1L, book(), 7L)));
         IsbnLookup entry = cached();
         when(cache.findById(ISBN)).thenReturn(Optional.of(entry));
 
@@ -128,7 +131,7 @@ class MetadataInspectionServiceTest {
     }
 
     private static Book book() {
-        Book book = new Book(1L, 7L);
+        Book book = new Book();
         ReflectionTestUtils.setField(book, "id", 5L);
         book.setIsbn13(ISBN);
         book.setTitle("L'étranger");

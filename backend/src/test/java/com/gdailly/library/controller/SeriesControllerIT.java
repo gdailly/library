@@ -8,26 +8,29 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.Instant;
-import java.util.List;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 
 import com.gdailly.library.IntegrationTest;
-import com.gdailly.library.entity.SeriesCatalog;
+import com.gdailly.library.entity.Book;
+import com.gdailly.library.entity.BookSeries;
+import com.gdailly.library.entity.Series;
 import com.gdailly.library.entity.SeriesCatalogStatus;
-import com.gdailly.library.entity.SeriesVolume;
-import com.gdailly.library.repository.SeriesCatalogRepository;
-import com.gdailly.library.repository.SeriesVolumeRepository;
+import com.gdailly.library.repository.BookRepository;
+import com.gdailly.library.repository.SeriesRepository;
 
 class SeriesControllerIT extends IntegrationTest {
 
     @Autowired
-    private SeriesCatalogRepository catalogs;
+    private SeriesRepository seriesRepository;
 
     @Autowired
-    private SeriesVolumeRepository volumes;
+    private BookRepository books;
+
+    @Autowired
+    private org.springframework.transaction.PlatformTransactionManager transactionManager;
 
     @Test
     void showsWhatTheLibraryHasOfASeriesAndWhatIsMissing() throws Exception {
@@ -60,11 +63,13 @@ class SeriesControllerIT extends IntegrationTest {
     void showsEveryVolumeListedByTheBnfWithTheLibrarysBooks() throws Exception {
         create("{\"title\": \"Tome deux\", \"series\": \"Saga Catalogue Test\", \"seriesNumber\": 2}");
         Instant now = Instant.parse("2026-11-03T20:00:00Z");
-        catalogs.save(new SeriesCatalog("saga catalogue test", SeriesCatalogStatus.FOUND, "123456", now));
-        volumes.saveAll(List.of(
-                new SeriesVolume("saga catalogue test", 1, "Tome un", "9782070612758", 2001),
-                new SeriesVolume("saga catalogue test", 2, "Tome deux (BnF)", null, 2002),
-                new SeriesVolume("saga catalogue test", 3, "Tome trois", null, 2003)));
+        // What listing the series from the BnF leaves: the volumes the library lacks become books of the series.
+        new org.springframework.transaction.support.TransactionTemplate(transactionManager).executeWithoutResult(tx -> {
+            Series series = seriesRepository.findByNameKey("saga catalogue test").orElseThrow();
+            series.listed(SeriesCatalogStatus.FOUND, "123456", now);
+            bnfVolume(series, 1, "Tome un", "9782070612758", 2001);
+            bnfVolume(series, 3, "Tome trois", null, 2003);
+        });
 
         mvc.perform(get("/api/series").param("q", "saga catalogue").with(owner()))
                 .andExpect(status().isOk())
@@ -100,7 +105,7 @@ class SeriesControllerIT extends IntegrationTest {
                 .andExpect(jsonPath("$.volumes[*].number").value(contains(1, 2)))
                 .andExpect(jsonPath("$.catalogFetchedAt").exists());
         // No book of the series has a BnF answer: nothing links to a series record.
-        org.assertj.core.api.Assertions.assertThat(catalogs.findById("saga forcée test").orElseThrow().getStatus())
+        org.assertj.core.api.Assertions.assertThat(seriesRepository.findByNameKey("saga forcee test").orElseThrow().getStatus())
                 .isEqualTo(SeriesCatalogStatus.NO_REFERENCE);
 
         mvc.perform(post("/api/admin/series/sync-one").param("name", "inconnue").with(owner()))
@@ -126,6 +131,15 @@ class SeriesControllerIT extends IntegrationTest {
         mvc.perform(post("/api/admin/series/sync").with(member)).andExpect(status().isForbidden());
         mvc.perform(get("/api/admin/series/sync").with(member)).andExpect(status().isForbidden());
         mvc.perform(post("/api/admin/series/sync-one").param("name", "x").with(member)).andExpect(status().isForbidden());
+    }
+
+    private void bnfVolume(Series series, int number, String title, String isbn13, int year) {
+        Book book = new Book();
+        book.setTitle(title);
+        book.setIsbn13(isbn13);
+        book.setYear(year);
+        book.getSeriesLinks().add(new BookSeries(book, series, number));
+        books.save(book);
     }
 
     private void create(String body) throws Exception {

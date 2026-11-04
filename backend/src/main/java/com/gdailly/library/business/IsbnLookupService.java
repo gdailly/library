@@ -21,7 +21,7 @@ import com.gdailly.library.exception.BadRequestException;
 import com.gdailly.library.exception.NotFoundException;
 import com.gdailly.library.exception.ServiceUnavailableException;
 import com.gdailly.library.mapper.IsbnLookupMapper;
-import com.gdailly.library.repository.BookRepository;
+import com.gdailly.library.repository.LibraryBookRepository;
 import com.gdailly.library.repository.IsbnLookupRepository;
 import com.gdailly.library.security.CurrentUser;
 import com.gdailly.library.util.Isbn;
@@ -34,16 +34,16 @@ import com.gdailly.library.util.Isbn;
 @Service
 public class IsbnLookupService {
 
-    private final BookRepository books;
+    private final LibraryBookRepository entries;
     private final IsbnLookupRepository cache;
     private final MetadataSources sources;
     private final LivreProperties.Isbn settings;
     private final Clock clock;
     private final IsbnLookupMapper isbnLookupMapper;
 
-    IsbnLookupService(BookRepository books, IsbnLookupRepository cache, MetadataSources sources,
+    IsbnLookupService(LibraryBookRepository entries, IsbnLookupRepository cache, MetadataSources sources,
             LivreProperties properties, Clock clock, IsbnLookupMapper isbnLookupMapper) {
-        this.books = books;
+        this.entries = entries;
         this.cache = cache;
         this.sources = sources;
         this.settings = properties.isbn();
@@ -54,9 +54,9 @@ public class IsbnLookupService {
     public IsbnLookupResponse lookup(CurrentUser user, String rawIsbn) {
         String isbn13 = Isbn.toIsbn13(rawIsbn).orElseThrow(() -> new BadRequestException("ISBN invalide : " + rawIsbn));
 
-        var existing = books.findByLibraryIdAndIsbn13(user.libraryId(), isbn13);
+        var existing = entries.findByLibraryIdAndBookIsbn13(user.libraryId(), isbn13);
         if (existing.isPresent()) {
-            return isbnLookupMapper.fromBook(existing.get());
+            return isbnLookupMapper.fromBook(existing.get().getBook());
         }
         MetadataMerger.Merged merged = resolve(isbn13, this::isFresh).orElseThrow(NotFoundException::new);
         return isbnLookupMapper.fromMetadata(isbn13, MetadataSource.valueOf(merged.source().name()), merged.metadata());

@@ -18,7 +18,7 @@ import com.gdailly.library.entity.IsbnLookup;
 import com.gdailly.library.exception.BadRequestException;
 import com.gdailly.library.exception.ForbiddenException;
 import com.gdailly.library.exception.NotFoundException;
-import com.gdailly.library.repository.BookRepository;
+import com.gdailly.library.repository.LibraryBookRepository;
 import com.gdailly.library.repository.IsbnLookupRepository;
 import com.gdailly.library.security.CoverUrlSigner;
 import com.gdailly.library.security.CurrentUser;
@@ -30,7 +30,7 @@ public class CoverService {
 
     private static final Logger log = LoggerFactory.getLogger(CoverService.class);
 
-    private final BookRepository books;
+    private final LibraryBookRepository entries;
     private final IsbnLookupRepository isbnCache;
     private final CoverStore store;
     private final CoverUrlSigner signer;
@@ -38,9 +38,9 @@ public class CoverService {
     private final MetadataSources sources;
     private final long maxBytes;
 
-    CoverService(BookRepository books, IsbnLookupRepository isbnCache, CoverStore store, CoverUrlSigner signer,
+    CoverService(LibraryBookRepository entries, IsbnLookupRepository isbnCache, CoverStore store, CoverUrlSigner signer,
             CoverDownloader downloader, MetadataSources sources, LivreProperties properties) {
-        this.books = books;
+        this.entries = entries;
         this.isbnCache = isbnCache;
         this.store = store;
         this.signer = signer;
@@ -74,7 +74,7 @@ public class CoverService {
 
     @Transactional
     public CoverResponse upload(CurrentUser user, Long bookId, byte[] image) {
-        Book book = books.findByIdAndLibraryId(bookId, user.libraryId()).orElseThrow(NotFoundException::new);
+        Book book = entries.findByLibraryIdAndBookId(user.libraryId(), bookId).orElseThrow(NotFoundException::new).getBook();
         if (image.length == 0 || image.length > maxBytes) {
             throw new BadRequestException("Image vide ou trop volumineuse.");
         }
@@ -89,7 +89,8 @@ public class CoverService {
     @Transactional
     public void remove(CurrentUser user, Long bookId) {
         // Files stay: other books or the ISBN cache may share the same image.
-        books.findByIdAndLibraryId(bookId, user.libraryId()).orElseThrow(NotFoundException::new).setCoverKey(null);
+        entries.findByLibraryIdAndBookId(user.libraryId(), bookId).orElseThrow(NotFoundException::new).getBook()
+                .setCoverKey(null);
     }
 
     /**
