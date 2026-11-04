@@ -29,6 +29,8 @@ class SyncRunItemResponse {
 
      this.detail,
 
+    required  this.childCount,
+
     required  this.createdAt,
   });
 
@@ -82,6 +84,18 @@ class SyncRunItemResponse {
 
   @JsonKey(
     
+    name: r'childCount',
+    required: true,
+    includeIfNull: false,
+  )
+
+
+  final int childCount;
+
+
+
+  @JsonKey(
+    
     name: r'createdAt',
     required: true,
     includeIfNull: false,
@@ -100,6 +114,7 @@ class SyncRunItemResponse {
       other.label == label &&
       other.outcome == outcome &&
       other.detail == detail &&
+      other.childCount == childCount &&
       other.createdAt == createdAt;
 
     @override
@@ -108,6 +123,7 @@ class SyncRunItemResponse {
         label.hashCode +
         outcome.hashCode +
         detail.hashCode +
+        childCount.hashCode +
         createdAt.hashCode;
 
   factory SyncRunItemResponse.fromJson(Map<String, dynamic> json) => _$SyncRunItemResponseFromJson(json);

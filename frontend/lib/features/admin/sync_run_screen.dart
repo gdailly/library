@@ -174,7 +174,7 @@ class _SyncRunScreenState extends ConsumerState<SyncRunScreen> {
               style: const TextStyle(color: AppColors.textSecondary),
             ),
           ),
-        for (final item in _items) _ItemLine(item: item),
+        for (final item in _items) _ItemLine(key: ValueKey(item.id), runId: widget.runId, item: item),
         if (_pages < _totalPages)
           Padding(
             padding: const EdgeInsets.only(top: 12),
@@ -194,46 +194,143 @@ class _SyncRunScreenState extends ConsumerState<SyncRunScreen> {
   }
 }
 
-class _ItemLine extends StatelessWidget {
-  const _ItemLine({required this.item});
+class _ItemLine extends ConsumerStatefulWidget {
+  const _ItemLine({super.key, required this.runId, required this.item});
+
+  final int runId;
+  final SyncRunItemResponse item;
+
+  @override
+  ConsumerState<_ItemLine> createState() => _ItemLineState();
+}
+
+/// A book or a series; a series opens on its volumes, read when first opened.
+class _ItemLineState extends ConsumerState<_ItemLine> {
+  bool _open = false;
+  List<SyncRunItemResponse>? _children;
+  Object? _error;
+
+  Future<void> _toggle() async {
+    setState(() => _open = !_open);
+    if (!_open || _children != null) {
+      return;
+    }
+    try {
+      final children = (await ref
+              .read(libraryApiProvider)
+              .getAdminApi()
+              .listSyncRunItemChildren(id: widget.runId, itemId: widget.item.id))
+          .data!;
+      if (mounted) {
+        setState(() {
+          _children = children;
+          _error = null;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _error = e);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final item = widget.item;
+    final expandable = item.childCount > 0;
+    final line = _Line(
+      item: item,
+      leading: expandable
+          ? Icon(_open ? Icons.expand_less : Icons.expand_more, size: 20, color: AppColors.textSecondary)
+          : null,
+      showTime: true,
+    );
+    return Container(
+      decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.border))),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (expandable)
+            Semantics(
+              button: true,
+              expanded: _open,
+              hint: '${item.childCount} tome${item.childCount > 1 ? 's' : ''}',
+              child: InkWell(onTap: _toggle, child: line),
+            )
+          else
+            line,
+          if (_open)
+            Padding(
+              padding: const EdgeInsets.only(left: 28, bottom: 8),
+              child: switch ((_children, _error)) {
+                (final List<SyncRunItemResponse> children, _) => Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [for (final child in children) _Line(item: child, dense: true)],
+                  ),
+                (_, final Object error) => MessageBox.error(errorMessage(error), onRetry: () {
+                    setState(() => _open = false);
+                    _toggle();
+                  }),
+                _ => const Padding(
+                    padding: EdgeInsets.all(8),
+                    child: Center(child: SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2))),
+                  ),
+              },
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Line extends StatelessWidget {
+  const _Line({required this.item, this.leading, this.showTime = false, this.dense = false});
 
   final SyncRunItemResponse item;
+  final Widget? leading;
+  final bool showTime;
+  final bool dense;
 
   @override
   Widget build(BuildContext context) {
     final local = item.createdAt.toLocal();
     String two(int n) => n.toString().padLeft(2, '0');
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.border))),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    return ConstrainedBox(
+      constraints: BoxConstraints(minHeight: dense ? 36 : 48),
+      child: Padding(
+        padding: EdgeInsets.symmetric(vertical: dense ? 6 : 10),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (leading != null) Padding(padding: const EdgeInsets.only(right: 8), child: leading),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(item.label, style: TextStyle(fontWeight: dense ? FontWeight.w500 : FontWeight.w600)),
+                  if (item.detail != null) ...[
+                    const SizedBox(height: 2),
+                    Text(item.detail!, style: const TextStyle(fontSize: 13, height: 1.4, color: AppColors.textSecondary)),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text(item.label, style: const TextStyle(fontWeight: FontWeight.w600)),
-                if (item.detail != null) ...[
-                  const SizedBox(height: 2),
-                  Text(item.detail!, style: const TextStyle(fontSize: 13, height: 1.4, color: AppColors.textSecondary)),
+                SyncTag.outcome(item.outcome),
+                if (showTime) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    '${two(local.hour)}:${two(local.minute)}:${two(local.second)}',
+                    style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                  ),
                 ],
               ],
             ),
-          ),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              SyncTag.outcome(item.outcome),
-              const SizedBox(height: 4),
-              Text(
-                '${two(local.hour)}:${two(local.minute)}:${two(local.second)}',
-                style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-              ),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

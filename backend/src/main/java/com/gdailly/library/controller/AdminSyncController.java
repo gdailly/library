@@ -1,5 +1,7 @@
 package com.gdailly.library.controller;
 
+import java.util.List;
+
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -46,5 +48,12 @@ class AdminSyncController {
             @RequestParam(defaultValue = "false") boolean problemsOnly,
             @RequestParam(defaultValue = "0") @Min(0) int page) {
         return history.items(user, id, problemsOnly, page);
+    }
+
+    /** The volumes listed under a series item of a synchronisation (new, unchanged, removed), in order. */
+    @GetMapping("/{id}/items/{itemId}/children")
+    List<SyncRunItemResponse> listSyncRunItemChildren(CurrentUser user, @PathVariable Long id,
+            @PathVariable Long itemId) {
+        return history.children(user, id, itemId);
     }
 }

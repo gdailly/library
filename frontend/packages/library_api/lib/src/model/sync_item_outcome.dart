@@ -17,7 +17,11 @@ enum SyncItemOutcome {
   @JsonValue(r'NO_REFERENCE')
   NO_REFERENCE(r'NO_REFERENCE'),
   @JsonValue(r'FAILED')
-  FAILED(r'FAILED');
+  FAILED(r'FAILED'),
+  @JsonValue(r'ADDED')
+  ADDED(r'ADDED'),
+  @JsonValue(r'REMOVED')
+  REMOVED(r'REMOVED');
 
   const SyncItemOutcome(this.value);
 

@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -69,7 +70,9 @@ class SyncHistoryIT extends IntegrationTest {
     @Test
     void listsOnlyTheProblemsWhenAsked() throws Exception {
         Long runId = history.start(SyncKind.SERIES_ALL, null, "owner@example.com", 2);
-        history.record(runId, "Astérix", SyncItemOutcome.FOUND, "38 tomes listés");
+        history.record(runId, "Astérix", SyncItemOutcome.FOUND, "2 tomes listés", List.of(
+                new SyncHistoryService.Child("Tome 1 · Astérix le Gaulois", SyncItemOutcome.UNCHANGED, "possédé"),
+                new SyncHistoryService.Child("Tome 2 · La Serpe d'or", SyncItemOutcome.ADDED, null)));
         history.record(runId, "Inconnue", SyncItemOutcome.NO_REFERENCE, null);
 
         mvc.perform(get("/api/admin/syncs/{id}", runId).with(owner()))
@@ -79,6 +82,17 @@ class SyncHistoryIT extends IntegrationTest {
         mvc.perform(get("/api/admin/syncs/{id}/items", runId).param("problemsOnly", "true").with(owner()))
                 .andExpect(jsonPath("$.items.length()").value(1))
                 .andExpect(jsonPath("$.items[0].label").value("Inconnue"));
+        String all = mvc.perform(get("/api/admin/syncs/{id}/items", runId).with(owner()))
+                .andExpect(jsonPath("$.totalItems").value(2))
+                .andExpect(jsonPath("$.items[1].label").value("Astérix"))
+                .andExpect(jsonPath("$.items[1].childCount").value(2))
+                .andReturn().getResponse().getContentAsString();
+        long seriesItem = ((Number) JsonPath.read(all, "$.items[1].id")).longValue();
+        mvc.perform(get("/api/admin/syncs/{id}/items/{itemId}/children", runId, seriesItem).with(owner()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].label").value("Tome 1 · Astérix le Gaulois"))
+                .andExpect(jsonPath("$[1].outcome").value("ADDED"));
         history.finish(runId, false);
     }
 

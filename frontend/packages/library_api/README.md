@@ -75,6 +75,7 @@ Class | Method | HTTP request | Description
 [*AdminApi*](doc/AdminApi.md) | [**getSeriesSync**](doc/AdminApi.md#getseriessync) | **GET** /api/admin/series/sync | 
 [*AdminApi*](doc/AdminApi.md) | [**getSyncRun**](doc/AdminApi.md#getsyncrun) | **GET** /api/admin/syncs/{id} | 
 [*AdminApi*](doc/AdminApi.md) | [**listBookMetadata**](doc/AdminApi.md#listbookmetadata) | **GET** /api/admin/metadata/books | 
+[*AdminApi*](doc/AdminApi.md) | [**listSyncRunItemChildren**](doc/AdminApi.md#listsyncrunitemchildren) | **GET** /api/admin/syncs/{id}/items/{itemId}/children | 
 [*AdminApi*](doc/AdminApi.md) | [**listSyncRunItems**](doc/AdminApi.md#listsyncrunitems) | **GET** /api/admin/syncs/{id}/items | 
 [*AdminApi*](doc/AdminApi.md) | [**listSyncRuns**](doc/AdminApi.md#listsyncruns) | **GET** /api/admin/syncs | 
 [*AdminApi*](doc/AdminApi.md) | [**startMetadataSync**](doc/AdminApi.md#startmetadatasync) | **POST** /api/admin/metadata/sync | 

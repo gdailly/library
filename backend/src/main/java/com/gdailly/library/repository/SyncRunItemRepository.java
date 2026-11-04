@@ -1,6 +1,7 @@
 package com.gdailly.library.repository;
 
 import java.util.Collection;
+import java.util.List;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -11,8 +12,10 @@ import com.gdailly.library.entity.SyncRunItem;
 
 public interface SyncRunItemRepository extends JpaRepository<SyncRunItem, Long> {
 
-    Page<SyncRunItem> findByRunIdOrderByIdDesc(Long runId, Pageable pageable);
+    Page<SyncRunItem> findByRunIdAndParentIdIsNullOrderByIdDesc(Long runId, Pageable pageable);
 
-    Page<SyncRunItem> findByRunIdAndOutcomeInOrderByIdDesc(Long runId, Collection<SyncItemOutcome> outcomes,
+    List<SyncRunItem> findByRunIdAndParentIdOrderByIdAsc(Long runId, Long parentId);
+
+    Page<SyncRunItem> findByRunIdAndParentIdIsNullAndOutcomeInOrderByIdDesc(Long runId, Collection<SyncItemOutcome> outcomes,
             Pageable pageable);
 }
